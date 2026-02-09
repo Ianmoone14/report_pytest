@@ -1,0 +1,73 @@
+{
+  "created": 0,
+  "duration": 2.5,
+  "environment": {
+    "project": "default"
+  },
+  "summary": {
+    "passed": 2,
+    "failed": 1,
+    "skipped": 1,
+    "total": 4
+  },
+  "tests": [
+    {
+      "nodeid": "tests/test_login.py::test_login_success",
+      "outcome": "passed",
+      "duration": 0.12,
+      "setup": {
+        "outcome": "passed"
+      },
+      "call": {
+        "outcome": "passed"
+      },
+      "teardown": {
+        "outcome": "passed"
+      }
+    },
+    {
+      "nodeid": "tests/test_login.py::test_login_invalid_password",
+      "outcome": "passed",
+      "duration": 0.08,
+      "setup": {
+        "outcome": "passed"
+      },
+      "call": {
+        "outcome": "passed"
+      },
+      "teardown": {
+        "outcome": "passed"
+      }
+    },
+    {
+      "nodeid": "tests/test_api.py::test_create_user",
+      "outcome": "failed",
+      "duration": 0.45,
+      "setup": {
+        "outcome": "passed"
+      },
+      "call": {
+        "outcome": "failed",
+        "longrepr": "AssertionError: Expected status 201, got 500\n\n  tests/test_api.py:42"
+      },
+      "teardown": {
+        "outcome": "passed"
+      }
+    },
+    {
+      "nodeid": "tests/test_legacy.py::test_old_flow",
+      "outcome": "skipped",
+      "duration": 0.01,
+      "setup": {
+        "outcome": "passed"
+      },
+      "call": {
+        "outcome": "skipped",
+        "longrepr": "Skipped: deprecated"
+      },
+      "teardown": {
+        "outcome": "passed"
+      }
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Pytest Report Viewer{% endblock %}
+
+{% block content %}
+<div class="page-header dashboard-header">
+    <div>
+        <h1>Execution history</h1>
+        <p class="subtitle">Latest runs first. Select a run to view details, attach bugs, and screenshots.</p>
+    </div>
+    <a href="{{ request.url_for('new_run_page') }}" class="btn btn-primary">New run</a>
+</div>
+
+{% if projects %}
+<div class="filter-bar">
+    <form method="get" action="/" class="filter-form">
+        <label for="project">Project</label>
+        <select name="project" id="project" onchange="this.form.submit()">
+            <option value="">All projects</option>
+            {% for p in projects %}
+            <option value="{{ p }}" {% if current_project == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+{% endif %}
+
+{% if not runs %}
+<div class="empty-state">
+    <div class="empty-icon">📊</div>
+    <h2>No runs yet</h2>
+    <p>Create a run and add suite JSONs, or upload a single report.</p>
+    <a href="{{ request.url_for('new_run_page') }}" class="btn btn-primary">New run</a>
+    <a href="/upload" class="btn btn-ghost">Upload single report</a>
+</div>
+{% else %}
+<ul class="run-list">
+    {% for run in runs %}
+    <li class="run-card">
+        <a href="/runs/{{ run.id }}" class="run-link">
+            <span class="run-id">Run #{{ run.id }}</span>
+            <span class="run-name">{{ run.name or run.project }}</span>
+            <span class="run-project">{{ run.project }}</span>
+            <span class="run-date">{{ run.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

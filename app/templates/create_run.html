@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}New run — Pytest Report Viewer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>New run</h1>
+    <p class="subtitle">Create a run, name it, then add test result JSONs from each suite.</p>
+</div>
+
+<div class="upload-card">
+    <form action="{{ request.url_for('create_run_action') }}" method="post" class="upload-form">
+        <div class="form-group">
+            <label for="name">Run name <span class="required">*</span></label>
+            <input type="text" name="name" id="name" placeholder="e.g. Nightly CHO 2026-02-09" required autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label for="project">Project (optional)</label>
+            <input type="text" name="project" id="project" placeholder="e.g. cho-requests" autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary">Create run</button>
+    </form>
+</div>
+
+<p class="muted-hint">After creating the run, you can upload one or more test-suite JSON files on the run page.</p>
+{% endblock %}

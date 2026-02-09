@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Labels mismatch — Pytest Report Viewer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Labels / terminology mismatch</h1>
+    <p class="subtitle">Track inconsistent labels (e.g. "attachments" on one page, "attachment" on another). Generate a list to fix.</p>
+</div>
+
+<div class="upload-card">
+    <form action="{{ request.url_for('add_label_mismatch_action') }}" method="post" class="upload-form">
+        <div class="form-group">
+            <label for="term1">Term 1 <span class="required">*</span></label>
+            <input type="text" name="term1" id="term1" placeholder="e.g. attachments" required autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label for="term2">Term 2 <span class="required">*</span></label>
+            <input type="text" name="term2" id="term2" placeholder="e.g. attachment" required autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label for="notes">Notes (optional)</label>
+            <input type="text" name="notes" id="notes" placeholder="e.g. Login page vs Settings" autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary">Add mismatch</button>
+    </form>
+</div>
+
+<div class="mismatch-export">
+    <a href="/labels-mismatch/export/csv" class="btn btn-ghost">Export CSV</a>
+</div>
+
+{% if not mismatches %}
+<div class="empty-state">
+    <p>No label mismatches yet. Add pairs above (e.g. "attachments" ↔ "attachment").</p>
+</div>
+{% else %}
+<div class="mismatch-table-wrap">
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th>Term 1</th>
+                <th>Term 2</th>
+                <th>Notes</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in mismatches %}
+            <tr>
+                <td><code>{{ m.term1 }}</code></td>
+                <td><code>{{ m.term2 }}</code></td>
+                <td class="cell-notes">{{ m.notes or '—' }}</td>
+                <td>
+                    <form action="{{ request.url_for('delete_label_mismatch_action', mismatch_id=m.id) }}" method="post" class="inline-delete-form">
+                        <button type="submit" class="btn-icon" title="Remove" aria-label="Remove">×</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}{{ run.name or 'Run #' ~ run.id }} — Pytest Report Viewer{% endblock %}
+
+{% block content %}
+{% if added is defined and added %}
+<div class="flash flash-success" role="status">Added {{ added }} test(s) to this run.</div>
+{% endif %}
+
+<div class="page-header run-detail-header">
+    <div>
+        <a href="/" class="back-link">← Dashboard</a>
+        <details class="run-name-edit">
+            <summary class="run-name-display">{{ run.name or ('Run #' ~ run.id) }}</summary>
+            <form action="{{ request.url_for('rename_run', run_id=run.id) }}" method="post" class="rename-run-form">
+                <input type="text" name="name" value="{{ run.name or '' }}" placeholder="Run name">
+                <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            </form>
+        </details>
+        <p class="subtitle">{{ run.project }} · {{ run.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    </div>
+    <div class="run-actions">
+        <a href="{{ request.url_for('export_run_csv', run_id=run.id) }}" class="btn btn-ghost">Export CSV</a>
+        <form action="{{ request.url_for('delete_run', run_id=run.id) }}" method="post" class="delete-run-form" onsubmit="return confirm('Delete this run and all its test results, bug links, and screenshots?');">
+            <button type="submit" class="btn btn-danger">Delete run</button>
+        </form>
+    </div>
+</div>
+
+{% set unique_bugs_run = unique_bugs_run if unique_bugs_run is defined else [] %}
+{% if unique_bugs_run %}
+<div class="run-bugs-summary">
+    <strong>{{ unique_bugs_run | length }} unique bug(s)</strong> in this run:
+    {% for b in unique_bugs_run %}
+    <a href="{{ b.url }}" target="_blank" rel="noopener" class="bug-summary-link">{{ b.label }}</a>{% if not loop.last %}, {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="add-results-section">
+    <details class="add-results-details">
+        <summary class="add-results-summary">+ Add test results (upload suite JSONs)</summary>
+        <form action="{{ request.url_for('upload_results_to_run', run_id=run.id) }}" method="post" enctype="multipart/form-data" class="add-results-form">
+            <p class="form-hint">Select one or more pytest JSON files. Each file (e.g. one per test suite) will be parsed and tests appended to this run.</p>
+            <input type="file" name="files" accept=".json" multiple required>
+            <button type="submit" class="btn btn-primary">Upload and add to run</button>
+        </form>
+    </details>
+</div>
+
+{% set passed = results | selectattr('status', 'equalto', 'passed') | list %}
+{% set failed = results | selectattr('status', 'equalto', 'failed') | list %}
+{% set skipped = results | selectattr('status', 'equalto', 'skipped') | list %}
+
+<div class="stats-row">
+    <div class="stat-card stat-total">
+        <span class="stat-value">{{ results | length }}</span>
+        <span class="stat-label">Total</span>
+    </div>
+    <div class="stat-card stat-passed">
+        <span class="stat-value">{{ passed | length }}</span>
+        <span class="stat-label">Passed</span>
+    </div>
+    <div class="stat-card stat-failed">
+        <span class="stat-value">{{ failed | length }}</span>
+        <span class="stat-label">Failed</span>
+    </div>
+    <div class="stat-card stat-skipped">
+        <span class="stat-value">{{ skipped | length }}</span>
+        <span class="stat-label">Skipped</span>
+    </div>
+</div>
+
+<div class="results-toolbar">
+    <div class="filter-status">
+        <label for="filter-status">Status</label>
+        <select id="filter-status" aria-label="Filter by status">
+            <option value="">All</option>
+            <option value="passed">Passed</option>
+            <option value="failed">Failed</option>
+            <option value="skipped">Skipped</option>
+        </select>
+    </div>
+    <div class="search-tests">
+        <label for="search-nodeid">Search test</label>
+        <input type="text" id="search-nodeid" placeholder="Filter by nodeid..." aria-label="Search tests">
+    </div>
+</div>
+
+<div class="results-table-wrap">
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Test</th>
+                <th>Duration</th>
+                <th>Bug links</th>
+                <th>Screenshots</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in results %}
+            <tr id="result-{{ r.id }}" class="result-row status-{{ r.status }}">
+                <td>
+                    <span class="badge badge-{{ r.status }}">{{ r.status }}</span>
+                </td>
+                <td class="cell-nodeid">
+                    <span class="nodeid">{{ r.nodeid }}</span>
+                    {% if r.error_message %}
+                    <details class="error-details">
+                        <summary>Error</summary>
+                        <pre class="error-message">{{ r.error_message }}</pre>
+                    </details>
+                    {% endif %}
+                </td>
+                <td class="cell-duration">{{ "%.2f" | format(r.duration) }}s</td>
+                <td class="cell-bug">
+                    {% set links = r.bug_links_list if r.bug_links_list is defined else [] %}
+                    <div class="bug-links-cell">
+                        <div class="links-section">
+                            {% if links %}
+                            <ul class="bug-links-list">
+                                {% for link in links %}
+                                <li class="bug-link-item">
+                                    <a href="{{ link.url }}" target="_blank" rel="noopener" class="bug-link-a" title="{{ link.url }}">
+                                        <span class="bug-link-icon" aria-hidden="true">↗</span>
+                                        {{ link.label }}
+                                    </a>
+                                    {% if link.id %}
+                                    <form action="{{ request.url_for('delete_bug_link', run_id=run.id, result_id=r.id, link_id=link.id) }}" method="post" class="bug-link-delete-form">
+                                        <button type="submit" class="btn-icon" title="Remove link" aria-label="Remove">×</button>
+                                    </form>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="empty-hint">No bug links</span>
+                            {% endif %}
+                        </div>
+                        <details class="add-link-details">
+                            <summary class="add-link-summary"><span class="add-trigger-icon">+</span> Add link</summary>
+                            <form action="{{ request.url_for('add_bug_link', run_id=run.id, result_id=r.id) }}" method="post" class="add-link-form">
+                                <label class="form-label">Name</label>
+                                <input type="text" name="label" placeholder="e.g. Jira PROJ-123" required>
+                                <label class="form-label">URL</label>
+                                <input type="url" name="url" placeholder="https://..." required>
+                                <button type="submit" class="btn btn-sm btn-primary">Save link</button>
+                            </form>
+                        </details>
+                    </div>
+                </td>
+                <td class="cell-screenshots">
+                    {% set screenshot_list = r.screenshot_list if r.screenshot_list is defined else [] %}
+                    <div class="screenshots-cell">
+                        <div class="screenshot-section">
+                            {% if screenshot_list %}
+                            <div class="screenshot-gallery">
+                                {% for ss in screenshot_list %}
+                                <div class="screenshot-item">
+                                    <a href="/uploads/{{ ss.file_path }}" target="_blank" rel="noopener" class="screenshot-thumb-link" title="Open full size">
+                                        <img src="/uploads/{{ ss.file_path }}" alt="{{ ss.name or 'Screenshot' }}">
+                                    </a>
+                                    <span class="screenshot-name">{{ ss.name or 'Screenshot' }}</span>
+                                    <form action="{{ request.url_for('delete_screenshot', run_id=run.id, result_id=r.id, screenshot_id=ss.id) }}" method="post" class="screenshot-delete-form">
+                                        <button type="submit" class="btn-icon btn-icon-sm" title="Remove screenshot" aria-label="Remove">×</button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="empty-hint">No screenshots</span>
+                            {% endif %}
+                        </div>
+                        <details class="add-screenshot-details">
+                            <summary class="add-screenshot-summary"><span class="add-trigger-icon">+</span> Add screenshot</summary>
+                            <form action="{{ request.url_for('upload_screenshot', run_id=run.id, result_id=r.id) }}" method="post" enctype="multipart/form-data" class="add-screenshot-form">
+                                <label class="form-label">Name <span class="form-optional">(optional)</span></label>
+                                <input type="text" name="name" placeholder="e.g. Login error">
+                                <label class="form-label">Image</label>
+                                <input type="file" name="file" accept="image/*" required>
+                                <button type="submit" class="btn btn-sm btn-primary">Upload</button>
+                            </form>
+                        </details>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+(function() {
+  var filterStatus = document.getElementById('filter-status');
+  var searchNodeid = document.getElementById('search-nodeid');
+  var rows = document.querySelectorAll('.results-table tbody tr.result-row');
+  function applyFilters() {
+    var status = (filterStatus && filterStatus.value) || '';
+    var q = (searchNodeid && searchNodeid.value) || '';
+    q = q.toLowerCase();
+    rows.forEach(function(tr) {
+      var statusMatch = !status || tr.classList.contains('status-' + status);
+      var nodeid = (tr.querySelector('.nodeid') || {}).textContent || '';
+      var searchMatch = !q || nodeid.toLowerCase().indexOf(q) !== -1;
+      tr.style.display = (statusMatch && searchMatch) ? '' : 'none';
+    });
+  }
+  if (filterStatus) filterStatus.addEventListener('change', applyFilters);
+  if (searchNodeid) searchNodeid.addEventListener('input', applyFilters);
+})();
+</script>
+{% endblock %}
