@@ -86,6 +86,49 @@ class TestScreenshot(Base):
         return f"<TestScreenshot(id={self.id}, file_path={self.file_path})>"
 
 
+# Allowed values for Bug.status (stored lowercase)
+BUG_STATUS_OPEN = "open"
+BUG_STATUS_CLOSED = "closed"
+BUG_STATUS_IN_PROGRESS = "in_progress"
+BUG_STATUS_WONT_FIX = "wont_fix"
+BUG_STATUSES = (BUG_STATUS_OPEN, BUG_STATUS_CLOSED, BUG_STATUS_IN_PROGRESS, BUG_STATUS_WONT_FIX)
+
+
+class Bug(Base):
+    """Bug-level entity (by URL): notes, status, and screenshots attached to the bug, not the test."""
+
+    __tablename__ = "bugs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(String(1024), nullable=False, unique=True)
+    label = Column(String(255), nullable=True)
+    status = Column(String(32), nullable=False, default=BUG_STATUS_OPEN)  # open, closed, in_progress, wont_fix
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    screenshots = relationship("BugScreenshot", back_populates="bug", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Bug(id={self.id}, url={self.url[:50]!r})>"
+
+
+class BugScreenshot(Base):
+    """Screenshot attached to a bug (bug-level, not test-level)."""
+
+    __tablename__ = "bug_screenshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    bug_id = Column(Integer, ForeignKey("bugs.id", ondelete="CASCADE"), nullable=False)
+    file_path = Column(String(512), nullable=False)
+    name = Column(String(255), nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+
+    bug = relationship("Bug", back_populates="screenshots")
+
+    def __repr__(self):
+        return f"<BugScreenshot(id={self.id}, bug_id={self.bug_id})>"
+
+
 class LabelMismatch(Base):
     """Terminology mismatch: same concept, different labels (e.g. 'attachments' vs 'attachment')."""
 

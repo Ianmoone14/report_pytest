@@ -3,51 +3,195 @@
 {% block title %}Bugs — Pytest Report Viewer{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Bugs dashboard</h1>
-    <p class="subtitle">Unique bugs linked from test results (deduplicated by URL).</p>
-</div>
-
-<div class="bugs-stats">
-    <div class="stat-card stat-total">
-        <span class="stat-value">{{ unique_bugs | length }}</span>
-        <span class="stat-label">Unique bugs</span>
+<section class="bugs-page">
+    <div class="page-header bugs-header">
+        <div>
+            <h1>Bugs</h1>
+            <p class="subtitle">Unique bugs linked from test results. Add notes and screenshots at bug level; open tickets or jump to runs.</p>
+        </div>
     </div>
-</div>
 
-{% if not unique_bugs %}
-<div class="empty-state">
-    <p>No bug links yet. Link bugs from test results on a run detail page.</p>
-    <a href="/" class="btn btn-primary">Dashboard</a>
-</div>
-{% else %}
-<div class="bugs-table-wrap">
-    <table class="results-table bugs-table">
-        <thead>
-            <tr>
-                <th>Label</th>
-                <th>URL</th>
-                <th>Runs</th>
-                <th>Tests linked</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for b in unique_bugs %}
-            <tr>
-                <td>{{ b.label }}</td>
-                <td class="cell-url">
-                    <a href="{{ b.url }}" target="_blank" rel="noopener">{{ b.url }}</a>
-                </td>
-                <td>
-                    {% for rid in b.run_ids %}
-                    <a href="/runs/{{ rid }}">Run #{{ rid }}</a>{% if not loop.last %}, {% endif %}
-                    {% endfor %}
-                </td>
-                <td>{{ b.test_count }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+    <div class="bugs-stats-row">
+        <div class="bugs-stat-card">
+            <span class="bugs-stat-value">{{ unique_bugs | length }}</span>
+            <span class="bugs-stat-label">Unique bugs</span>
+        </div>
+        <div class="bugs-stat-card">
+            <span class="bugs-stat-value">{{ total_links }}</span>
+            <span class="bugs-stat-label">Total links</span>
+        </div>
+    </div>
+
+    {% if unique_bugs %}
+    <div class="bugs-filters-section">
+        <form method="get" action="/bugs" class="bugs-filters-form">
+            <div class="bugs-filters-row">
+                <div class="filter-group">
+                    <label for="filter-run">Run</label>
+                    <select name="run_id" id="filter-run">
+                        <option value="">All runs</option>
+                        {% for r in runs %}
+                        <option value="{{ r.id }}" {% if current_run_id == r.id %}selected{% endif %}>{{ r.name or 'Run #' ~ r.id }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filter-project">Project</label>
+                    <select name="project" id="filter-project">
+                        <option value="">All projects</option>
+                        {% for p in projects %}
+                        <option value="{{ p }}" {% if current_project == p %}selected{% endif %}>{{ p }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filter-date-from">From date</label>
+                    <input type="date" name="date_from" id="filter-date-from" value="{{ current_date_from }}">
+                </div>
+                <div class="filter-group">
+                    <label for="filter-date-to">To date</label>
+                    <input type="date" name="date_to" id="filter-date-to" value="{{ current_date_to }}">
+                </div>
+                <div class="filter-group">
+                    <label for="filter-sort">Sort</label>
+                    <select name="sort" id="filter-sort">
+                        <option value="most_linked" {% if current_sort == 'most_linked' %}selected{% endif %}>Most linked</option>
+                        <option value="label_az" {% if current_sort == 'label_az' %}selected{% endif %}>Label A–Z</option>
+                        <option value="label_za" {% if current_sort == 'label_za' %}selected{% endif %}>Label Z–A</option>
+                        <option value="url_az" {% if current_sort == 'url_az' %}selected{% endif %}>URL A–Z</option>
+                        <option value="url_za" {% if current_sort == 'url_za' %}selected{% endif %}>URL Z–A</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-ghost">Apply</button>
+            </div>
+        </form>
+        <div class="bugs-export-row">
+            <a href="/bugs/export/csv?run_id={{ current_run_id or '' }}&project={{ current_project or '' }}&date_from={{ current_date_from }}&date_to={{ current_date_to }}" class="btn btn-ghost">Export CSV</a>
+        </div>
+    </div>
+
+    <div class="bugs-toolbar">
+        <label for="bugs-search">Search</label>
+        <input type="text" id="bugs-search" placeholder="Filter by label or URL..." aria-label="Search bugs">
+    </div>
+    {% endif %}
+
+    {% if not unique_bugs %}
+    <div class="empty-state">
+        <div class="empty-icon">🐞</div>
+        <p>No bug links yet.</p>
+        <p class="empty-hint">Link bugs from test results on a run detail page, then they appear here.</p>
+        <a href="/" class="btn btn-primary">Dashboard</a>
+    </div>
+    {% else %}
+    <div class="bugs-list" id="bugs-list">
+        {% for b in unique_bugs %}
+        <article class="bug-card" data-label="{{ b.label | lower }}" data-url="{{ b.url | lower }}">
+            <div class="bug-card-main">
+                <div class="bug-card-head">
+                    <div class="bug-card-label">{{ b.label }}</div>
+                    <a href="{{ b.url }}" target="_blank" rel="noopener" class="bug-open-link" title="Open {{ b.url }}">
+                        <span class="bug-open-text">Open</span>
+                        <span class="bug-open-arrow">↗</span>
+                    </a>
+                </div>
+                <a href="{{ b.url }}" target="_blank" rel="noopener" class="bug-card-url" title="{{ b.url }}">{{ b.url }}</a>
+                <div class="bug-card-status-row">
+                    <span class="bug-status-label">Status</span>
+                    <form action="/bugs/status" method="post" class="bug-status-form">
+                        <input type="hidden" name="url" value="{{ b.url }}">
+                        <input type="hidden" name="run_id" value="{{ current_run_id or '' }}">
+                        <input type="hidden" name="project" value="{{ current_project or '' }}">
+                        <input type="hidden" name="date_from" value="{{ current_date_from }}">
+                        <input type="hidden" name="date_to" value="{{ current_date_to }}">
+                        <input type="hidden" name="sort" value="{{ current_sort }}">
+                        <select name="status" class="bug-status-select" aria-label="Bug status" onchange="this.form.submit()">
+                            {% for value, label in bug_status_choices %}
+                            <option value="{{ value }}" {% if (b.status or 'open') == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+                <div class="bug-card-meta">
+                    <span class="bug-meta-item">{{ b.test_count }} test{{ 's' if b.test_count != 1 else '' }} linked</span>
+                    <span class="bug-runs">
+                        {% for rid in b.run_ids %}
+                        <a href="/runs/{{ rid }}" class="bug-run-pill">Run #{{ rid }}</a>
+                        {% endfor %}
+                    </span>
+                </div>
+                <div class="bug-card-notes">
+                    <form action="/bugs/notes" method="post" class="bug-notes-form">
+                        <input type="hidden" name="url" value="{{ b.url }}">
+                        <input type="hidden" name="run_id" value="{{ current_run_id or '' }}">
+                        <input type="hidden" name="project" value="{{ current_project or '' }}">
+                        <input type="hidden" name="date_from" value="{{ current_date_from }}">
+                        <input type="hidden" name="date_to" value="{{ current_date_to }}">
+                        <input type="hidden" name="sort" value="{{ current_sort }}">
+                        <label for="notes-{{ loop.index }}">Notes</label>
+                        <textarea name="notes" id="notes-{{ loop.index }}" rows="2" placeholder="Add a note (e.g. Fixed in build 123)">{{ b.notes or '' }}</textarea>
+                        <button type="submit" class="btn btn-sm btn-ghost">Save note</button>
+                    </form>
+                </div>
+                <div class="bug-card-screenshots">
+                    <span class="bug-screenshots-label">Screenshots (bug-level)</span>
+                    {% if b.screenshots %}
+                    <div class="bug-screenshots-list">
+                        {% for ss in b.screenshots %}
+                        <div class="bug-screenshot-item">
+                            <a href="/uploads/{{ ss.file_path }}" target="_blank" rel="noopener" class="bug-screenshot-thumb"><img src="/uploads/{{ ss.file_path }}" alt="{{ ss.name or 'Screenshot' }}"></a>
+                            <span class="bug-screenshot-name">{{ ss.name or 'Screenshot' }}</span>
+                            <form action="/bugs/screenshots/{{ ss.id }}/delete" method="post" class="bug-screenshot-delete-form">
+                                <input type="hidden" name="run_id" value="{{ current_run_id or '' }}">
+                                <input type="hidden" name="project" value="{{ current_project or '' }}">
+                                <input type="hidden" name="date_from" value="{{ current_date_from }}">
+                                <input type="hidden" name="date_to" value="{{ current_date_to }}">
+                                <input type="hidden" name="sort" value="{{ current_sort }}">
+                                <button type="submit" class="btn-icon btn-icon-sm" title="Remove" aria-label="Remove">×</button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <details class="bug-add-screenshot-details">
+                        <summary class="bug-add-screenshot-summary">+ Add screenshot</summary>
+                        <form action="/bugs/screenshots" method="post" enctype="multipart/form-data" class="bug-add-screenshot-form">
+                            <input type="hidden" name="url" value="{{ b.url }}">
+                            <input type="hidden" name="run_id" value="{{ current_run_id or '' }}">
+                            <input type="hidden" name="project" value="{{ current_project or '' }}">
+                            <input type="hidden" name="date_from" value="{{ current_date_from }}">
+                            <input type="hidden" name="date_to" value="{{ current_date_to }}">
+                            <input type="hidden" name="sort" value="{{ current_sort }}">
+                            <input type="text" name="name" placeholder="Name (optional)">
+                            <input type="file" name="file" accept="image/*" required>
+                            <button type="submit" class="btn btn-sm btn-primary">Upload</button>
+                        </form>
+                    </details>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+
+    <p class="bugs-footer-hint">Bugs are deduplicated by URL. Sorted by most linked first (or by your chosen sort). Screenshots and notes are stored at bug level.</p>
+    {% endif %}
+</section>
+
+{% if unique_bugs %}
+<script>
+(function() {
+  var search = document.getElementById('bugs-search');
+  var list = document.getElementById('bugs-list');
+  var cards = list && list.querySelectorAll('.bug-card');
+  if (!search || !cards.length) return;
+  search.addEventListener('input', function() {
+    var q = (search.value || '').toLowerCase().trim();
+    cards.forEach(function(card) {
+      var show = !q || (card.getAttribute('data-label') || '').indexOf(q) !== -1 || (card.getAttribute('data-url') || '').indexOf(q) !== -1;
+      card.style.display = show ? '' : 'none';
+    });
+  });
+})();
+</script>
 {% endif %}
 {% endblock %}

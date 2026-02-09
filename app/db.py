@@ -24,7 +24,7 @@ def get_db():
 
 def init_db():
     """Create all tables and add any missing columns (e.g. test_screenshots.name)."""
-    from app.models import TestRun, TestResult, TestScreenshot, TestBugLink, LabelMismatch  # noqa: F401
+    from app.models import TestRun, TestResult, TestScreenshot, TestBugLink, Bug, BugScreenshot, LabelMismatch  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
 
@@ -43,6 +43,12 @@ def init_db():
                 cols2 = [row[1] for row in r2] if r2 else []
                 if "name" not in cols2:
                     conn.execute(text("ALTER TABLE test_runs ADD COLUMN name VARCHAR(255)"))
+                    conn.commit()
+                # bugs.status
+                r3 = conn.execute(text("PRAGMA table_info(bugs)"))
+                cols3 = [row[1] for row in r3] if r3 else []
+                if "status" not in cols3:
+                    conn.execute(text("ALTER TABLE bugs ADD COLUMN status VARCHAR(32) DEFAULT 'open' NOT NULL"))
                     conn.commit()
         except Exception:
             pass

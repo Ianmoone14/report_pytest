@@ -1,11 +1,22 @@
 """CRUD operations for test runs, results, and screenshots."""
 
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 
-from app.models import TestRun, TestResult, TestScreenshot, TestBugLink, LabelMismatch
+from app.models import (
+    TestRun,
+    TestResult,
+    TestScreenshot,
+    TestBugLink,
+    Bug,
+    BugScreenshot,
+    LabelMismatch,
+    BUG_STATUS_OPEN,
+    BUG_STATUSES,
+)
 
 
 # ---- TestRun ----
@@ -184,39 +195,168 @@ def get_projects(db: Session) -> list[str]:
 
 
 # ---- Unique bugs (by URL) ----
-def get_unique_bugs_overall(db: Session) -> list[dict]:
-    """List unique bugs across all runs: by URL, with label, run_ids, test count (includes legacy bug_link)."""
-    by_url: dict[str, dict] = {}
-    # From TestBugLink
-    rows = (
-        db.query(TestBugLink.url, TestBugLink.label, TestResult.run_id)
+def _collect_bugs_by_url(db: Session, run_id_filter=None, project_filter=None, date_from=None, date_to=None):
+    """Collect (url, label, run_id, run_project, run_created_at) with optional filters."""
+    # TestBugLink + TestResult + TestRun
+    q = (
+        db.query(TestBugLink.url, TestBugLink.label, TestResult.run_id, TestRun.project, TestRun.created_at)
         .join(TestResult, TestResult.id == TestBugLink.test_result_id)
+        .join(TestRun, TestRun.id == TestResult.run_id)
+    )
+    rows = q.all()
+    # Legacy TestResult.bug_link: need run_id, project, created_at
+    legacy = (
+        db.query(TestResult.bug_link, TestResult.run_id, TestRun.project, TestRun.created_at)
+        .join(TestRun, TestRun.id == TestResult.run_id)
+        .filter(TestResult.bug_link.isnot(None))
         .all()
     )
-    for url, label, run_id in rows:
+    out = []
+    for url, label, rid, proj, created in rows:
         url = (url or "").strip()
         if not url:
             continue
-        if url not in by_url:
-            by_url[url] = {"url": url, "label": label or "Bug", "run_ids": set(), "test_count": 0}
-        by_url[url]["run_ids"].add(run_id)
-        by_url[url]["test_count"] += 1
-    # Legacy TestResult.bug_link
-    legacy = db.query(TestResult.bug_link, TestResult.run_id).filter(TestResult.bug_link.isnot(None)).all()
-    for url, run_id in legacy:
+        if run_id_filter is not None and rid != run_id_filter:
+            continue
+        if project_filter and proj != project_filter:
+            continue
+        if date_from and created and created < date_from:
+            continue
+        if date_to and created and created > date_to:
+            continue
+        out.append((url, label or "Bug", rid, proj, created))
+    for url, rid, proj, created in legacy:
         url = (url or "").strip()
         if not url:
             continue
+        if run_id_filter is not None and rid != run_id_filter:
+            continue
+        if project_filter and proj != project_filter:
+            continue
+        if date_from and created and created < date_from:
+            continue
+        if date_to and created and created > date_to:
+            continue
+        out.append((url, "Bug link", rid, proj, created))
+    return out
+
+
+def get_unique_bugs_overall(
+    db: Session,
+    run_id: Optional[int] = None,
+    project: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    sort: str = "most_linked",
+) -> list[dict]:
+    """List unique bugs with optional filters; enrich with Bug (notes, screenshots)."""
+    rows = _collect_bugs_by_url(db, run_id_filter=run_id, project_filter=project, date_from=date_from, date_to=date_to)
+    by_url: dict[str, dict] = {}
+    for url, label, run_id_val, _proj, _created in rows:
         if url not in by_url:
-            by_url[url] = {"url": url, "label": "Bug link", "run_ids": set(), "test_count": 0}
-        by_url[url]["run_ids"].add(run_id)
+            by_url[url] = {"url": url, "label": label, "run_ids": set(), "test_count": 0}
+        by_url[url]["run_ids"].add(run_id_val)
         by_url[url]["test_count"] += 1
     out = []
     for v in by_url.values():
         v["run_ids"] = sorted(v["run_ids"])
         out.append(v)
-    out.sort(key=lambda x: (-x["test_count"], x["url"]))
+    # Sort
+    if sort == "label_az":
+        out.sort(key=lambda x: ((x["label"] or "").lower(), x["url"]))
+    elif sort == "label_za":
+        out.sort(key=lambda x: ((x["label"] or "").lower(), x["url"]), reverse=True)
+    elif sort == "url_az":
+        out.sort(key=lambda x: (x["url"].lower(), x["label"]))
+    elif sort == "url_za":
+        out.sort(key=lambda x: (x["url"].lower(), x["label"]), reverse=True)
+    else:
+        out.sort(key=lambda x: (-x["test_count"], x["url"]))
+    # Enrich with Bug (notes, status, screenshots)
+    for b in out:
+        bug = get_bug_by_url(db, b["url"])
+        b["bug_id"] = bug.id if bug else None
+        b["notes"] = bug.notes if bug else None
+        b["status"] = bug.status if bug else BUG_STATUS_OPEN
+        b["screenshots"] = get_bug_screenshots(db, bug.id) if bug else []
     return out
+
+
+def get_bug_by_url(db: Session, url: str) -> Optional[Bug]:
+    return db.query(Bug).filter(Bug.url == (url or "").strip()).first()
+
+
+def get_bug(db: Session, bug_id: int) -> Optional[Bug]:
+    return db.query(Bug).filter(Bug.id == bug_id).first()
+
+
+def get_or_create_bug(db: Session, url: str, label: Optional[str] = None) -> Bug:
+    url = (url or "").strip()
+    if not url:
+        raise ValueError("URL required")
+    bug = get_bug_by_url(db, url)
+    if bug:
+        if label:
+            bug.label = label
+            db.commit()
+            db.refresh(bug)
+        return bug
+    bug = Bug(url=url, label=(label or "").strip() or None, status=BUG_STATUS_OPEN)
+    db.add(bug)
+    db.commit()
+    db.refresh(bug)
+    return bug
+
+
+def update_bug_notes(db: Session, bug_id: int, notes: Optional[str]) -> Optional[Bug]:
+    bug = get_bug(db, bug_id)
+    if not bug:
+        return None
+    bug.notes = (notes or "").strip() or None
+    db.commit()
+    db.refresh(bug)
+    return bug
+
+
+def update_bug_status(db: Session, bug_id: int, status: str) -> Optional[Bug]:
+    status = (status or "").strip().lower()
+    if status not in BUG_STATUSES:
+        return None
+    bug = get_bug(db, bug_id)
+    if not bug:
+        return None
+    bug.status = status
+    db.commit()
+    db.refresh(bug)
+    return bug
+
+
+def get_bug_screenshots(db: Session, bug_id: int) -> list:
+    return db.query(BugScreenshot).filter(BugScreenshot.bug_id == bug_id).order_by(BugScreenshot.uploaded_at).all()
+
+
+def add_bug_screenshot(db: Session, bug_id: int, file_path: str, name: Optional[str] = None) -> Optional[BugScreenshot]:
+    bug = get_bug(db, bug_id)
+    if not bug:
+        return None
+    ss = BugScreenshot(bug_id=bug_id, file_path=file_path, name=(name or "").strip() or None)
+    db.add(ss)
+    db.commit()
+    db.refresh(ss)
+    return ss
+
+
+def get_bug_screenshot(db: Session, screenshot_id: int):
+    return db.query(BugScreenshot).filter(BugScreenshot.id == screenshot_id).first()
+
+
+def delete_bug_screenshot(db: Session, screenshot_id: int) -> bool:
+    ss = get_bug_screenshot(db, screenshot_id)
+    if not ss:
+        return False
+    db.delete(ss)
+    db.commit()
+    return True
 
 
 def get_unique_bugs_for_run(db: Session, run_id: int) -> list[dict]:

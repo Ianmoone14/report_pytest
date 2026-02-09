@@ -29,15 +29,24 @@
 
 {% set unique_bugs_run = unique_bugs_run if unique_bugs_run is defined else [] %}
 {% if unique_bugs_run %}
-<div class="run-bugs-summary">
-    <strong>{{ unique_bugs_run | length }} unique bug(s)</strong> in this run:
-    {% for b in unique_bugs_run %}
-    <a href="{{ b.url }}" target="_blank" rel="noopener" class="bug-summary-link">{{ b.label }}</a>{% if not loop.last %}, {% endif %}
-    {% endfor %}
-</div>
+<section class="run-detail-section run-bugs-summary-card">
+    <h2 class="section-title">Bugs in this run</h2>
+    <p class="section-desc">{{ unique_bugs_run | length }} unique bug(s) linked. Use <strong>Open ↗</strong> to open the ticket.</p>
+    <div class="run-bugs-summary">
+        {% for b in unique_bugs_run %}
+        <span class="bug-summary-item">
+            <span class="bug-summary-label">{{ b.label }}</span>
+            <a href="{{ b.url }}" target="_blank" rel="noopener" class="bug-open-btn" title="Open {{ b.url }}">
+                <span class="bug-open-btn-text">Open</span>
+                <span class="bug-open-btn-icon" aria-hidden="true">↗</span>
+            </a>
+        </span>
+        {% endfor %}
+    </div>
+</section>
 {% endif %}
 
-<div class="add-results-section">
+<section class="run-detail-section add-results-section">
     <details class="add-results-details">
         <summary class="add-results-summary">+ Add test results (upload suite JSONs)</summary>
         <form action="{{ request.url_for('upload_results_to_run', run_id=run.id) }}" method="post" enctype="multipart/form-data" class="add-results-form">
@@ -46,13 +55,15 @@
             <button type="submit" class="btn btn-primary">Upload and add to run</button>
         </form>
     </details>
-</div>
+</section>
 
 {% set passed = results | selectattr('status', 'equalto', 'passed') | list %}
 {% set failed = results | selectattr('status', 'equalto', 'failed') | list %}
 {% set skipped = results | selectattr('status', 'equalto', 'skipped') | list %}
 
-<div class="stats-row">
+<section class="run-detail-section run-stats-section">
+    <h2 class="section-title">Summary</h2>
+    <div class="stats-row">
     <div class="stat-card stat-total">
         <span class="stat-value">{{ results | length }}</span>
         <span class="stat-label">Total</span>
@@ -69,9 +80,12 @@
         <span class="stat-value">{{ skipped | length }}</span>
         <span class="stat-label">Skipped</span>
     </div>
-</div>
+    </div>
+</section>
 
-<div class="results-toolbar">
+<section class="run-detail-section run-results-section">
+    <h2 class="section-title">Test results</h2>
+    <div class="results-toolbar">
     <div class="filter-status">
         <label for="filter-status">Status</label>
         <select id="filter-status" aria-label="Filter by status">
@@ -85,9 +99,9 @@
         <label for="search-nodeid">Search test</label>
         <input type="text" id="search-nodeid" placeholder="Filter by nodeid..." aria-label="Search tests">
     </div>
-</div>
+    </div>
 
-<div class="results-table-wrap">
+    <div class="results-table-wrap">
     <table class="results-table">
         <thead>
             <tr>
@@ -122,13 +136,14 @@
                             <ul class="bug-links-list">
                                 {% for link in links %}
                                 <li class="bug-link-item">
-                                    <a href="{{ link.url }}" target="_blank" rel="noopener" class="bug-link-a" title="{{ link.url }}">
-                                        <span class="bug-link-icon" aria-hidden="true">↗</span>
-                                        {{ link.label }}
+                                    <span class="bug-link-label-chip">{{ link.label }}</span>
+                                    <a href="{{ link.url }}" target="_blank" rel="noopener" class="bug-link-open-btn" title="Open {{ link.url }}">
+                                        <span class="bug-link-open-text">Open</span>
+                                        <span class="bug-link-open-icon" aria-hidden="true">↗</span>
                                     </a>
                                     {% if link.id %}
                                     <form action="{{ request.url_for('delete_bug_link', run_id=run.id, result_id=r.id, link_id=link.id) }}" method="post" class="bug-link-delete-form">
-                                        <button type="submit" class="btn-icon" title="Remove link" aria-label="Remove">×</button>
+                                        <button type="submit" class="btn-icon btn-icon-ghost" title="Remove link" aria-label="Remove">×</button>
                                     </form>
                                     {% endif %}
                                 </li>
@@ -188,7 +203,8 @@
             {% endfor %}
         </tbody>
     </table>
-</div>
+    </div>
+</section>
 
 <script>
 (function() {

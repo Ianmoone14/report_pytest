@@ -1,6 +1,9 @@
 """FastAPI application: upload, dashboard, run detail, bug links, screenshots."""
 
+import csv
+import io
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -12,14 +15,24 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db, init_db
-from app.models import TestRun, TestResult
+from app.models import TestRun, TestResult, BUG_STATUSES
 from app.parser import parse_pytest_json, build_test_results
 from app import crud
+
+# Display labels for bug status (value -> label)
+BUG_STATUS_LABELS = {
+    "open": "Open",
+    "closed": "Closed",
+    "in_progress": "In progress",
+    "wont_fix": "Won't fix",
+}
+BUG_STATUS_CHOICES = [(s, BUG_STATUS_LABELS.get(s, s)) for s in BUG_STATUSES]
 
 app = FastAPI(title="Pytest Execution Report Viewer")
 
 # Ensure uploads exist
 settings.screenshots_dir.mkdir(parents=True, exist_ok=True)
+settings.bug_screenshots_dir.mkdir(parents=True, exist_ok=True)
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -311,13 +324,183 @@ def delete_screenshot(
     return RedirectResponse(url=f"/runs/{run_id}#result-{result_id}", status_code=303)
 
 
+@app.get("/ideas", response_class=HTMLResponse)
+def ideas_page(request: Request):
+    return templates.TemplateResponse("ideas.html", {"request": request})
+
+
+def _parse_date(s: Optional[str]):
+    if not s:
+        return None
+    try:
+        return datetime.strptime(s.strip()[:10], "%Y-%m-%d")
+    except Exception:
+        return None
+
+
 @app.get("/bugs", response_class=HTMLResponse)
-def bugs_dashboard(request: Request, db: Session = Depends(get_db)):
-    unique_bugs = crud.get_unique_bugs_overall(db)
+def bugs_dashboard(
+    request: Request,
+    run_id: Optional[int] = None,
+    project: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    sort: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    df = _parse_date(date_from)
+    dt = _parse_date(date_to)
+    sort_val = (sort or "most_linked").strip() or "most_linked"
+    if sort_val not in ("most_linked", "label_az", "label_za", "url_az", "url_za"):
+        sort_val = "most_linked"
+    unique_bugs = crud.get_unique_bugs_overall(
+        db, run_id=run_id, project=project, date_from=df, date_to=dt, sort=sort_val
+    )
+    total_links = sum(b["test_count"] for b in unique_bugs)
+    runs = crud.get_runs(db, limit=500)
+    projects = crud.get_projects(db)
     return templates.TemplateResponse(
         "bugs.html",
-        {"request": request, "unique_bugs": unique_bugs},
+        {
+            "request": request,
+            "unique_bugs": unique_bugs,
+            "total_links": total_links,
+            "runs": runs,
+            "projects": projects,
+            "bug_status_choices": BUG_STATUS_CHOICES,
+            "current_run_id": run_id,
+            "current_project": project,
+            "current_date_from": date_from or "",
+            "current_date_to": date_to or "",
+            "current_sort": sort_val,
+        },
     )
+
+
+@app.get("/bugs/export/csv")
+def bugs_export_csv(
+    run_id: Optional[int] = None,
+    project: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    df = _parse_date(date_from)
+    dt = _parse_date(date_to)
+    unique_bugs = crud.get_unique_bugs_overall(
+        db, run_id=run_id, project=project, date_from=df, date_to=dt, sort="most_linked"
+    )
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Label", "URL", "Status", "Notes", "Runs", "Tests linked"])
+    for b in unique_bugs:
+        notes = (b.get("notes") or "").replace("\r", " ").replace("\n", " ")
+        runs_str = ", ".join(f"Run #{r}" for r in b["run_ids"])
+        status_label = BUG_STATUS_LABELS.get((b.get("status") or "open"), b.get("status") or "Open")
+        w.writerow([b.get("label") or "", b["url"], status_label, notes, runs_str, b["test_count"]])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=bugs.csv"},
+    )
+
+
+def _bugs_redirect_url(run_id=None, project=None, date_from=None, date_to=None, sort=None):
+    parts = []
+    if run_id is not None and run_id != "":
+        parts.append(f"run_id={run_id}")
+    if project:
+        parts.append(f"project={project}")
+    if date_from:
+        parts.append(f"date_from={date_from}")
+    if date_to:
+        parts.append(f"date_to={date_to}")
+    if sort:
+        parts.append(f"sort={sort}")
+    return "/bugs" + ("?" + "&".join(parts) if parts else "")
+
+
+@app.post("/bugs/notes")
+def bugs_save_notes(
+    url: str = Form(...),
+    notes: Optional[str] = Form(None),
+    run_id: Optional[str] = Form(None),
+    project: Optional[str] = Form(None),
+    date_from: Optional[str] = Form(None),
+    date_to: Optional[str] = Form(None),
+    sort: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    bug = crud.get_or_create_bug(db, url=url)
+    crud.update_bug_notes(db, bug.id, notes)
+    return RedirectResponse(url=_bugs_redirect_url(run_id, project, date_from, date_to, sort), status_code=303)
+
+
+@app.post("/bugs/status")
+def bugs_set_status(
+    url: str = Form(...),
+    status: str = Form(...),
+    run_id: Optional[str] = Form(None),
+    project: Optional[str] = Form(None),
+    date_from: Optional[str] = Form(None),
+    date_to: Optional[str] = Form(None),
+    sort: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    bug = crud.get_or_create_bug(db, url=url)
+    crud.update_bug_status(db, bug.id, status)
+    return RedirectResponse(url=_bugs_redirect_url(run_id, project, date_from, date_to, sort), status_code=303)
+
+
+@app.post("/bugs/screenshots")
+async def bugs_upload_screenshot(
+    url: str = Form(...),
+    file: UploadFile = File(...),
+    name: Optional[str] = Form(None),
+    run_id: Optional[str] = Form(None),
+    project: Optional[str] = Form(None),
+    date_from: Optional[str] = Form(None),
+    date_to: Optional[str] = Form(None),
+    sort: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    if not file.filename:
+        raise HTTPException(400, "No file")
+    ext = Path(file.filename).suffix.lower()
+    if ext not in settings.allowed_image_extensions:
+        raise HTTPException(400, f"Allowed: {', '.join(settings.allowed_image_extensions)}")
+    bug = crud.get_or_create_bug(db, url=url)
+    safe_name = f"bug_{bug.id}_{uuid.uuid4().hex}{ext}"
+    dest = settings.bug_screenshots_dir / safe_name
+    content = await file.read()
+    dest.write_bytes(content)
+    rel_path = f"bug_screenshots/{safe_name}"
+    crud.add_bug_screenshot(db, bug.id, rel_path, name=(name or "").strip() or None)
+    return RedirectResponse(url=_bugs_redirect_url(run_id, project, date_from, date_to, sort), status_code=303)
+
+
+@app.post("/bugs/screenshots/{screenshot_id}/delete")
+def bugs_delete_screenshot(
+    screenshot_id: int,
+    run_id: Optional[str] = Form(None),
+    project: Optional[str] = Form(None),
+    date_from: Optional[str] = Form(None),
+    date_to: Optional[str] = Form(None),
+    sort: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    ss = crud.get_bug_screenshot(db, screenshot_id)
+    if not ss:
+        raise HTTPException(404, "Screenshot not found")
+    file_path = settings.uploads_dir / ss.file_path
+    if file_path.is_file():
+        try:
+            file_path.unlink()
+        except OSError:
+            pass
+    crud.delete_bug_screenshot(db, screenshot_id)
+    return RedirectResponse(url=_bugs_redirect_url(run_id, project, date_from, date_to, sort), status_code=303)
 
 
 @app.get("/labels-mismatch", response_class=HTMLResponse)
