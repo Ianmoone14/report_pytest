@@ -83,147 +83,236 @@
     </div>
 </section>
 
+{% macro result_row(r) %}
+<tr id="result-{{ r.id }}" class="result-row status-{{ r.status }}">
+    <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+    <td class="cell-nodeid">
+        <span class="nodeid">{{ r.nodeid }}</span>
+        {% if r.error_message %}
+        <details class="error-details">
+            <summary>Error</summary>
+            <pre class="error-message">{{ r.error_message }}</pre>
+        </details>
+        {% endif %}
+    </td>
+    <td class="cell-duration">{{ "%.2f" | format(r.duration) }}s</td>
+    <td class="cell-bug">
+        {% set links = r.bug_links_list if r.bug_links_list is defined else [] %}
+        <div class="bug-links-cell">
+            <div class="links-section">
+                {% if links %}
+                <ul class="bug-links-list">
+                    {% for link in links %}
+                    <li class="bug-link-item">
+                        <span class="bug-link-label-chip">{{ link.label }}</span>
+                        <a href="{{ link.url }}" target="_blank" rel="noopener" class="bug-link-open-btn" title="Open {{ link.url }}">
+                            <span class="bug-link-open-text">Open</span>
+                            <span class="bug-link-open-icon" aria-hidden="true">↗</span>
+                        </a>
+                        {% if link.id %}
+                        <form action="{{ request.url_for('delete_bug_link', run_id=run.id, result_id=r.id, link_id=link.id) }}" method="post" class="bug-link-delete-form">
+                            <button type="submit" class="btn-icon btn-icon-ghost" title="Remove link" aria-label="Remove">×</button>
+                        </form>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <span class="empty-hint">No bug links</span>
+                {% endif %}
+            </div>
+            <details class="add-link-details">
+                <summary class="add-link-summary"><span class="add-trigger-icon">+</span> Add link</summary>
+                <form action="{{ request.url_for('add_bug_link', run_id=run.id, result_id=r.id) }}" method="post" class="add-link-form">
+                    <label class="form-label">Name</label>
+                    <input type="text" name="label" placeholder="e.g. Jira PROJ-123" required>
+                    <label class="form-label">URL</label>
+                    <input type="url" name="url" placeholder="https://..." required>
+                    <button type="submit" class="btn btn-sm btn-primary">Save link</button>
+                </form>
+            </details>
+        </div>
+    </td>
+    <td class="cell-screenshots">
+        {% set screenshot_list = r.screenshot_list if r.screenshot_list is defined else [] %}
+        <div class="screenshots-cell">
+            <div class="screenshot-section">
+                {% if screenshot_list %}
+                <div class="screenshot-gallery">
+                    {% for ss in screenshot_list %}
+                    <div class="screenshot-item">
+                        <a href="/uploads/{{ ss.file_path }}" target="_blank" rel="noopener" class="screenshot-thumb-link" title="Open full size">
+                            <img src="/uploads/{{ ss.file_path }}" alt="{{ ss.name or 'Screenshot' }}">
+                        </a>
+                        <span class="screenshot-name">{{ ss.name or 'Screenshot' }}</span>
+                        <form action="{{ request.url_for('delete_screenshot', run_id=run.id, result_id=r.id, screenshot_id=ss.id) }}" method="post" class="screenshot-delete-form">
+                            <button type="submit" class="btn-icon btn-icon-sm" title="Remove screenshot" aria-label="Remove">×</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <span class="empty-hint">No screenshots</span>
+                {% endif %}
+            </div>
+            <details class="add-screenshot-details">
+                <summary class="add-screenshot-summary"><span class="add-trigger-icon">+</span> Add screenshot</summary>
+                <form action="{{ request.url_for('upload_screenshot', run_id=run.id, result_id=r.id) }}" method="post" enctype="multipart/form-data" class="add-screenshot-form">
+                    <label class="form-label">Name <span class="form-optional">(optional)</span></label>
+                    <input type="text" name="name" placeholder="e.g. Login error">
+                    <label class="form-label">Image</label>
+                    <input type="file" name="file" accept="image/*" required>
+                    <button type="submit" class="btn btn-sm btn-primary">Upload</button>
+                </form>
+            </details>
+        </div>
+    </td>
+</tr>
+{% endmacro %}
+
 <section class="run-detail-section run-results-section">
     <h2 class="section-title">Test results</h2>
     <div class="results-toolbar">
-    <div class="filter-status">
-        <label for="filter-status">Status</label>
-        <select id="filter-status" aria-label="Filter by status">
-            <option value="">All</option>
-            <option value="passed">Passed</option>
-            <option value="failed">Failed</option>
-            <option value="skipped">Skipped</option>
-        </select>
-    </div>
-    <div class="search-tests">
-        <label for="search-nodeid">Search test</label>
-        <input type="text" id="search-nodeid" placeholder="Filter by nodeid..." aria-label="Search tests">
-    </div>
+        <div class="search-tests">
+            <label for="search-nodeid">Search</label>
+            <input type="text" id="search-nodeid" placeholder="Filter by test name..." aria-label="Search tests">
+        </div>
+        <div class="show-rows">
+            <label for="show-rows">Show per group</label>
+            <select id="show-rows" aria-label="Rows per group">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="0">All</option>
+            </select>
+        </div>
+        <div class="results-jump">
+            <span class="results-jump-label">Jump to:</span>
+            <button type="button" class="results-jump-btn" data-status="">All</button>
+            <button type="button" class="results-jump-btn results-jump-failed" data-status="failed">Failed ({{ failed | length }})</button>
+            <button type="button" class="results-jump-btn results-jump-skipped" data-status="skipped">Skipped ({{ skipped | length }})</button>
+            <button type="button" class="results-jump-btn results-jump-passed" data-status="passed">Passed ({{ passed | length }})</button>
+        </div>
+        <div class="results-count" id="results-count" aria-live="polite">—</div>
     </div>
 
-    <div class="results-table-wrap">
-    <table class="results-table">
-        <thead>
-            <tr>
-                <th>Status</th>
-                <th>Test</th>
-                <th>Duration</th>
-                <th>Bug links</th>
-                <th>Screenshots</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for r in results %}
-            <tr id="result-{{ r.id }}" class="result-row status-{{ r.status }}">
-                <td>
-                    <span class="badge badge-{{ r.status }}">{{ r.status }}</span>
-                </td>
-                <td class="cell-nodeid">
-                    <span class="nodeid">{{ r.nodeid }}</span>
-                    {% if r.error_message %}
-                    <details class="error-details">
-                        <summary>Error</summary>
-                        <pre class="error-message">{{ r.error_message }}</pre>
-                    </details>
-                    {% endif %}
-                </td>
-                <td class="cell-duration">{{ "%.2f" | format(r.duration) }}s</td>
-                <td class="cell-bug">
-                    {% set links = r.bug_links_list if r.bug_links_list is defined else [] %}
-                    <div class="bug-links-cell">
-                        <div class="links-section">
-                            {% if links %}
-                            <ul class="bug-links-list">
-                                {% for link in links %}
-                                <li class="bug-link-item">
-                                    <span class="bug-link-label-chip">{{ link.label }}</span>
-                                    <a href="{{ link.url }}" target="_blank" rel="noopener" class="bug-link-open-btn" title="Open {{ link.url }}">
-                                        <span class="bug-link-open-text">Open</span>
-                                        <span class="bug-link-open-icon" aria-hidden="true">↗</span>
-                                    </a>
-                                    {% if link.id %}
-                                    <form action="{{ request.url_for('delete_bug_link', run_id=run.id, result_id=r.id, link_id=link.id) }}" method="post" class="bug-link-delete-form">
-                                        <button type="submit" class="btn-icon btn-icon-ghost" title="Remove link" aria-label="Remove">×</button>
-                                    </form>
-                                    {% endif %}
-                                </li>
-                                {% endfor %}
-                            </ul>
-                            {% else %}
-                            <span class="empty-hint">No bug links</span>
-                            {% endif %}
-                        </div>
-                        <details class="add-link-details">
-                            <summary class="add-link-summary"><span class="add-trigger-icon">+</span> Add link</summary>
-                            <form action="{{ request.url_for('add_bug_link', run_id=run.id, result_id=r.id) }}" method="post" class="add-link-form">
-                                <label class="form-label">Name</label>
-                                <input type="text" name="label" placeholder="e.g. Jira PROJ-123" required>
-                                <label class="form-label">URL</label>
-                                <input type="url" name="url" placeholder="https://..." required>
-                                <button type="submit" class="btn btn-sm btn-primary">Save link</button>
-                            </form>
-                        </details>
-                    </div>
-                </td>
-                <td class="cell-screenshots">
-                    {% set screenshot_list = r.screenshot_list if r.screenshot_list is defined else [] %}
-                    <div class="screenshots-cell">
-                        <div class="screenshot-section">
-                            {% if screenshot_list %}
-                            <div class="screenshot-gallery">
-                                {% for ss in screenshot_list %}
-                                <div class="screenshot-item">
-                                    <a href="/uploads/{{ ss.file_path }}" target="_blank" rel="noopener" class="screenshot-thumb-link" title="Open full size">
-                                        <img src="/uploads/{{ ss.file_path }}" alt="{{ ss.name or 'Screenshot' }}">
-                                    </a>
-                                    <span class="screenshot-name">{{ ss.name or 'Screenshot' }}</span>
-                                    <form action="{{ request.url_for('delete_screenshot', run_id=run.id, result_id=r.id, screenshot_id=ss.id) }}" method="post" class="screenshot-delete-form">
-                                        <button type="submit" class="btn-icon btn-icon-sm" title="Remove screenshot" aria-label="Remove">×</button>
-                                    </form>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% else %}
-                            <span class="empty-hint">No screenshots</span>
-                            {% endif %}
-                        </div>
-                        <details class="add-screenshot-details">
-                            <summary class="add-screenshot-summary"><span class="add-trigger-icon">+</span> Add screenshot</summary>
-                            <form action="{{ request.url_for('upload_screenshot', run_id=run.id, result_id=r.id) }}" method="post" enctype="multipart/form-data" class="add-screenshot-form">
-                                <label class="form-label">Name <span class="form-optional">(optional)</span></label>
-                                <input type="text" name="name" placeholder="e.g. Login error">
-                                <label class="form-label">Image</label>
-                                <input type="file" name="file" accept="image/*" required>
-                                <button type="submit" class="btn btn-sm btn-primary">Upload</button>
-                            </form>
-                        </details>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="results-by-status">
+        {% if failed %}
+        <details class="results-group results-group-failed" open>
+            <summary class="results-group-summary">
+                <span class="results-group-title">Failed</span>
+                <span class="results-group-count">{{ failed | length }}</span>
+            </summary>
+            <div class="results-table-wrap">
+                <table class="results-table">
+                    <thead><tr><th>Status</th><th>Test</th><th>Duration</th><th>Bug links</th><th>Screenshots</th></tr></thead>
+                    <tbody>{% for r in failed %}{{ result_row(r) }}{% endfor %}</tbody>
+                </table>
+            </div>
+        </details>
+        {% endif %}
+        {% if skipped %}
+        <details class="results-group results-group-skipped" {% if not failed %}open{% endif %}>
+            <summary class="results-group-summary">
+                <span class="results-group-title">Skipped</span>
+                <span class="results-group-count">{{ skipped | length }}</span>
+            </summary>
+            <div class="results-table-wrap">
+                <table class="results-table">
+                    <thead><tr><th>Status</th><th>Test</th><th>Duration</th><th>Bug links</th><th>Screenshots</th></tr></thead>
+                    <tbody>{% for r in skipped %}{{ result_row(r) }}{% endfor %}</tbody>
+                </table>
+            </div>
+        </details>
+        {% endif %}
+        {% if passed %}
+        <details class="results-group results-group-passed" {% if passed | length > 10 %}data-start-collapsed{% endif %}>
+            <summary class="results-group-summary">
+                <span class="results-group-title">Passed</span>
+                <span class="results-group-count">{{ passed | length }}</span>
+            </summary>
+            <div class="results-table-wrap">
+                <table class="results-table">
+                    <thead><tr><th>Status</th><th>Test</th><th>Duration</th><th>Bug links</th><th>Screenshots</th></tr></thead>
+                    <tbody>{% for r in passed %}{{ result_row(r) }}{% endfor %}</tbody>
+                </table>
+            </div>
+        </details>
+        {% endif %}
     </div>
 </section>
 
 <script>
 (function() {
-  var filterStatus = document.getElementById('filter-status');
   var searchNodeid = document.getElementById('search-nodeid');
-  var rows = document.querySelectorAll('.results-table tbody tr.result-row');
-  function applyFilters() {
-    var status = (filterStatus && filterStatus.value) || '';
-    var q = (searchNodeid && searchNodeid.value) || '';
-    q = q.toLowerCase();
-    rows.forEach(function(tr) {
-      var statusMatch = !status || tr.classList.contains('status-' + status);
-      var nodeid = (tr.querySelector('.nodeid') || {}).textContent || '';
-      var searchMatch = !q || nodeid.toLowerCase().indexOf(q) !== -1;
-      tr.style.display = (statusMatch && searchMatch) ? '' : 'none';
-    });
+  var showRows = document.getElementById('show-rows');
+  var countEl = document.getElementById('results-count');
+  var groups = document.querySelectorAll('.results-group');
+  var jumpBtns = document.querySelectorAll('.results-jump-btn');
+
+  function getQuery() {
+    return ((searchNodeid && searchNodeid.value) || '').toLowerCase().trim();
   }
-  if (filterStatus) filterStatus.addEventListener('change', applyFilters);
+
+  function passesSearch(tr, q) {
+    if (!q) return true;
+    var nodeid = (tr.querySelector('.nodeid') || {}).textContent || '';
+    return nodeid.toLowerCase().indexOf(q) !== -1;
+  }
+
+  function applyFilters() {
+    var q = getQuery();
+    var limit = showRows ? parseInt(showRows.value, 10) : 50;
+    if (isNaN(limit) || limit <= 0) limit = 0;
+    var totalVisible = 0;
+    var totalRows = 0;
+    groups.forEach(function(details) {
+      var tbody = details.querySelector('tbody');
+      if (!tbody) return;
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.result-row'));
+      totalRows += rows.length;
+      var shown = 0;
+      rows.forEach(function(tr) {
+        var pass = passesSearch(tr, q);
+        if (pass) totalVisible++;
+        var show = pass && (limit === 0 || shown < limit);
+        if (show) shown++;
+        tr.style.display = show ? '' : 'none';
+      });
+    });
+    if (countEl) {
+      if (totalVisible === 0) {
+        countEl.textContent = 'No tests match the search.';
+      } else {
+        countEl.textContent = 'Showing ' + totalVisible + ' of ' + totalRows + ' test' + (totalRows !== 1 ? 's' : '');
+      }
+    }
+  }
+
+  function jumpTo(status) {
+    if (status) {
+      var el = document.querySelector('.results-group-' + status);
+      if (el) {
+        groups.forEach(function(d) { d.open = false; });
+        el.open = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      groups.forEach(function(d) { d.open = true; });
+      document.querySelector('.results-by-status').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
   if (searchNodeid) searchNodeid.addEventListener('input', applyFilters);
+  if (showRows) showRows.addEventListener('change', applyFilters);
+  jumpBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      jumpTo(btn.getAttribute('data-status'));
+    });
+  });
+  document.querySelectorAll('.results-group[data-start-collapsed]').forEach(function(d) { d.open = false; });
+  applyFilters();
 })();
 </script>
 {% endblock %}

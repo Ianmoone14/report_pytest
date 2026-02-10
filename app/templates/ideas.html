@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Feature ideas — Pytest Report Viewer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Feature ideas</h1>
+    <p class="subtitle">Ideas to improve the app for viewing runs and bugs. Pick what fits your workflow.</p>
+</div>
+
+<div class="ideas-content">
+    <section class="ideas-section">
+        <h2>Runs & history</h2>
+        <ul>
+            <li><strong>Pass rate over time</strong> — Dashboard widget or chart: e.g. Run 1 100%, Run 2 85%.</li>
+            <li><strong>Run comparison</strong> — Select two runs and diff: which tests passed in one and failed in the other.</li>
+            <li><strong>Run tags/labels</strong> — Tag runs (e.g. nightly, release-1.2) and filter by tag.</li>
+            <li><strong>Copy run link</strong> — Share button that copies the run URL for Slack/email.</li>
+            <li><strong>Bulk delete old runs</strong> — e.g. delete runs older than 30 days.</li>
+        </ul>
+    </section>
+
+    <section class="ideas-section">
+        <h2>Bugs</h2>
+        <ul>
+            <li><strong>Filters on Bugs page</strong> — Filter by run, by project, or by date range.</li>
+            <li><strong>Sort options</strong> — Sort by most linked, by label A–Z, or by first seen.</li>
+            <li><strong>Bug notes</strong> — Optional note per bug (e.g. Fixed in build 123).</li>
+            <li><strong>Export bugs list</strong> — CSV/Excel of all unique bugs with run IDs and test counts.</li>
+        </ul>
+    </section>
+
+    <section class="ideas-section">
+        <h2>Test analysis</h2>
+        <ul>
+            <li><strong>Flaky test detection</strong> — Highlight tests that failed in one run and passed in another.</li>
+            <li><strong>Slow tests</strong> — Sort or filter by duration; highlight tests above a threshold.</li>
+            <li><strong>Full-text search</strong> — Search across all runs (nodeid, error messages) from the dashboard.</li>
+        </ul>
+    </section>
+
+    <section class="ideas-section">
+        <h2>Reporting & export</h2>
+        <ul>
+            <li><strong>Export run as HTML report</strong> — Single HTML file for archiving or sharing.</li>
+            <li><strong>PDF export</strong> — One-click PDF of the current run for stakeholders.</li>
+            <li><strong>Scheduled summary</strong> — Optional email digest: last 7 days summary.</li>
+        </ul>
+    </section>
+
+    <section class="ideas-section">
+        <h2>UX</h2>
+        <ul>
+            <li><strong>Dark/light theme toggle</strong> — User preference for theme.</li>
+            <li><strong>Keyboard shortcuts</strong> — e.g. / to focus search, j/k to move between rows.</li>
+            <li><strong>Dashboard summary</strong> — On main page: total runs, total tests, total unique bugs (with link to Bugs).</li>
+        </ul>
+    </section>
+
+    <section class="ideas-section">
+        <h2>Integrations (future)</h2>
+        <ul>
+            <li><strong>Jira / Azure DevOps</strong> — Show ticket status (Open, Done) from the tracker.</li>
+            <li><strong>CI webhook</strong> — POST a run from CI; app creates the run and can notify (e.g. Slack) on failures.</li>
+        </ul>
+    </section>
+</div>
+{% endblock %}
