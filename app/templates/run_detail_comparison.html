@@ -1,0 +1,608 @@
+{% extends "base.html" %}
+
+{% block title %}{{ run.name or 'Run #' ~ run.id }} — UI vs API Comparison{% endblock %}
+
+{% block content %}
+{% if added is defined and added %}
+<div class="flash flash-success" role="status">Added {{ added }} test(s) to this run.</div>
+{% endif %}
+
+<div class="page-header run-detail-header">
+    <div>
+        <a href="/" class="back-link">← Dashboard</a>
+        <details class="run-name-edit">
+            <summary class="run-name-display">{{ run.name or ('Run #' ~ run.id) }}</summary>
+            <form action="{{ request.url_for('rename_run', run_id=run.id) }}" method="post" class="rename-run-form">
+                <input type="text" name="name" value="{{ run.name or '' }}" placeholder="Run name">
+                <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            </form>
+        </details>
+        <p class="subtitle">{{ run.project }} · {{ run.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p class="comparison-badge">🔍 UI vs API Comparison</p>
+    </div>
+    <div class="run-actions">
+        <form action="{{ request.url_for('upload_results_to_run', run_id=run.id) }}" method="post" enctype="multipart/form-data" class="upload-form-inline">
+            <input type="file" name="files" accept=".json" required class="file-input-inline" id="file-input-{{ run.id }}" multiple>
+            <label for="file-input-{{ run.id }}" class="btn btn-primary">
+                <span>📤 Upload Test</span>
+            </label>
+            <button type="submit" class="btn btn-primary" style="display: none;" id="submit-btn-{{ run.id }}">Upload</button>
+        </form>
+        <a href="{{ request.url_for('export_run_csv', run_id=run.id) }}" class="btn btn-ghost">Export CSV</a>
+        <form action="{{ request.url_for('delete_run', run_id=run.id) }}" method="post" class="delete-run-form" onsubmit="return confirm('Delete this run and all its test results, bug links, and screenshots?');">
+            <button type="submit" class="btn btn-danger">Delete run</button>
+        </form>
+    </div>
+</div>
+
+{% for test in comparison_data.tests %}
+{% set summary = test.summary %}
+<div class="test-container">
+    <div class="test-header-collapsed" data-test-index="{{ loop.index0 }}">
+        <div class="test-header-content">
+            <div class="test-header-left">
+                <button class="test-expand-btn" aria-expanded="false">
+                    <span class="expand-icon">▶</span>
+                </button>
+                <h2 class="test-title">{{ test.test_name }}</h2>
+            </div>
+            <div class="test-header-right">
+                <div class="test-summary-stats">
+                    <span class="summary-stat">
+                        <span class="summary-label">Total:</span>
+                        <span class="summary-value">{{ summary.get('total_records', 0) }}</span>
+                    </span>
+                    {% if summary.get('mismatched_records', 0) > 0 %}
+                    <span class="summary-stat summary-error">
+                        <span class="summary-label">Mismatches:</span>
+                        <span class="summary-value">{{ summary.get('mismatched_records', 0) }}</span>
+                    </span>
+                    {% endif %}
+                    {% if summary.get('missing_in_ui', 0) > 0 %}
+                    <span class="summary-stat summary-warning">
+                        <span class="summary-label">Missing UI:</span>
+                        <span class="summary-value">{{ summary.get('missing_in_ui', 0) }}</span>
+                    </span>
+                    {% endif %}
+                    {% if summary.get('missing_in_api', 0) > 0 %}
+                    <span class="summary-stat summary-warning">
+                        <span class="summary-label">Missing API:</span>
+                        <span class="summary-value">{{ summary.get('missing_in_api', 0) }}</span>
+                    </span>
+                    {% endif %}
+                    {% if summary.get('matched_records', 0) > 0 %}
+                    <span class="summary-stat summary-success">
+                        <span class="summary-label">Matched:</span>
+                        <span class="summary-value">{{ summary.get('matched_records', 0) }}</span>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-details" data-test-index="{{ loop.index0 }}" style="display: none;">
+        <div class="test-header-expanded">
+            <div class="test-header-main">
+                <h2 class="test-title">{{ test.test_name }}</h2>
+                <div class="test-api-info">
+                    <div class="api-endpoint-row">
+                        <span class="api-label">Endpoint:</span>
+                        <code class="api-code">{{ test.api_endpoint }}</code>
+                    </div>
+                    {% if test.api_parameters %}
+                    <div class="api-params-row">
+                        <span class="api-label">Parameters:</span>
+                        <code class="api-code">{{ test.api_parameters | tojson }}</code>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-number">{{ summary.get('total_records', 0) }}</div>
+                <div class="stat-label">Total Records</div>
+            </div>
+            <div class="stat-box stat-success">
+                <div class="stat-number">{{ summary.get('matched_records', 0) }}</div>
+                <div class="stat-label">Matched</div>
+            </div>
+            <div class="stat-box stat-error">
+                <div class="stat-number">{{ summary.get('mismatched_records', 0) }}</div>
+                <div class="stat-label">Mismatched</div>
+            </div>
+            <div class="stat-box stat-warning">
+                <div class="stat-number">{{ summary.get('missing_in_ui', 0) }}</div>
+                <div class="stat-label">Missing in UI</div>
+            </div>
+            <div class="stat-box stat-warning">
+                <div class="stat-number">{{ summary.get('missing_in_api', 0) }}</div>
+                <div class="stat-label">Missing in API</div>
+            </div>
+        </div>
+
+    {% for record in test.records %}
+    {% set matched_fields = [] %}
+    {% if record.all_fields %}
+        {% for field in record.all_fields %}
+            {% set has_ui = field in record.ui_data %}
+            {% set has_api = field in record.api_data %}
+            {% if has_ui and has_api %}
+                {% set ui_val = record.ui_data.get(field) %}
+                {% set api_val = record.api_data.get(field) %}
+                {% if ui_val == api_val %}
+                    {% if matched_fields.append(field) %}{% endif %}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    <div class="record-card" data-record="{{ record.record_index }}">
+        <div class="record-header">
+            <div class="record-title-row">
+                <h3 class="record-title">Record #{{ record.record_index }}</h3>
+                <span class="status-pill status-{{ record.status }}">{{ record.status }}</span>
+            </div>
+            <div class="record-meta-row">
+                <span class="meta-badge">{{ record.ui_data.items() | list | length }} UI fields</span>
+                <span class="meta-badge">{{ record.api_data.items() | list | length }} API fields</span>
+            </div>
+        </div>
+
+        <div class="view-tabs">
+            <button class="view-tab active" data-view="comparison" data-record="{{ record.record_index }}">
+                <span>Side-by-Side</span>
+            </button>
+            {% if matched_fields | length > 0 %}
+            <button class="view-tab" data-view="matched" data-record="{{ record.record_index }}">
+                <span>Matched</span>
+                <span class="badge-count">{{ matched_fields | length }}</span>
+            </button>
+            {% endif %}
+            {% if record.mismatches %}
+            <button class="view-tab" data-view="mismatches" data-record="{{ record.record_index }}">
+                <span>Mismatches</span>
+                <span class="badge-count">{{ record.mismatches | length }}</span>
+            </button>
+            {% endif %}
+            {% if record.missing_in_ui %}
+            <button class="view-tab" data-view="missing-ui" data-record="{{ record.record_index }}">
+                <span>Missing in UI</span>
+                <span class="badge-count">{{ record.missing_in_ui | length }}</span>
+            </button>
+            {% endif %}
+            {% if record.missing_in_api %}
+            <button class="view-tab" data-view="missing-api" data-record="{{ record.record_index }}">
+                <span>Missing in API</span>
+                <span class="badge-count">{{ record.missing_in_api | length }}</span>
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Side-by-Side Comparison View -->
+        <div class="view-content view-comparison active" data-record="{{ record.record_index }}">
+            {% if record.all_fields and record.all_fields | length > 0 %}
+            <div class="comparison-grid">
+                <div class="comparison-header">
+                    <div class="comp-col-field">Field</div>
+                    <div class="comp-col-ui">UI Value</div>
+                    <div class="comp-col-api">API Value</div>
+                    <div class="comp-col-status">Status</div>
+                </div>
+                {% for field in record.all_fields %}
+                {% set ui_val = record.ui_data.get(field) %}
+                {% set api_val = record.api_data.get(field) %}
+                {% set has_ui = field in record.ui_data %}
+                {% set has_api = field in record.api_data %}
+                {% set is_mismatch = has_ui and has_api and (ui_val != api_val) %}
+                {% set is_missing_ui = not has_ui and has_api %}
+                {% set is_missing_api = has_ui and not has_api %}
+                {% set is_match = has_ui and has_api and (ui_val == api_val) %}
+                
+                <div class="comparison-row row-{% if is_match %}match{% elif is_mismatch %}mismatch{% elif is_missing_ui %}missing-ui{% elif is_missing_api %}missing-api{% endif %}">
+                    <div class="comp-col-field">
+                        <strong>{{ field }}</strong>
+                    </div>
+                    <div class="comp-col-ui">
+                        {% if has_ui %}
+                        <code class="value-ui">{{ ui_val }}</code>
+                        {% else %}
+                        <span class="value-empty">—</span>
+                        {% endif %}
+                    </div>
+                    <div class="comp-col-api">
+                        {% if has_api %}
+                        <code class="value-api">{{ api_val }}</code>
+                        {% else %}
+                        <span class="value-empty">—</span>
+                        {% endif %}
+                    </div>
+                    <div class="comp-col-status">
+                        {% if is_match %}
+                        <span class="status-dot status-dot-match"></span>
+                        <span class="status-text">Match</span>
+                        {% elif is_mismatch %}
+                        <span class="status-dot status-dot-mismatch"></span>
+                        <span class="status-text">Mismatch</span>
+                        {% elif is_missing_ui %}
+                        <span class="status-dot status-dot-warning"></span>
+                        <span class="status-text">Missing UI</span>
+                        {% elif is_missing_api %}
+                        <span class="status-dot status-dot-warning"></span>
+                        <span class="status-text">Missing API</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-message">No comparison data available.</div>
+            {% endif %}
+        </div>
+
+        <!-- Matched Fields View -->
+        {% if matched_fields | length > 0 %}
+        <div class="view-content view-matched" data-record="{{ record.record_index }}">
+            <div class="comparison-grid">
+                <div class="comparison-header">
+                    <div class="comp-col-field">Field</div>
+                    <div class="comp-col-ui">UI Value</div>
+                    <div class="comp-col-api">API Value</div>
+                    <div class="comp-col-status">Status</div>
+                </div>
+                {% for field in matched_fields %}
+                {% set ui_val = record.ui_data.get(field) %}
+                {% set api_val = record.api_data.get(field) %}
+                <div class="comparison-row row-match">
+                    <div class="comp-col-field">
+                        <strong>{{ field }}</strong>
+                    </div>
+                    <div class="comp-col-ui">
+                        <code class="value-ui">{{ ui_val }}</code>
+                    </div>
+                    <div class="comp-col-api">
+                        <code class="value-api">{{ api_val }}</code>
+                    </div>
+                    <div class="comp-col-status">
+                        <span class="status-dot status-dot-match"></span>
+                        <span class="status-text">Match</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Mismatches Only View -->
+        {% if record.mismatches %}
+        <div class="view-content view-mismatches" data-record="{{ record.record_index }}">
+            {% if record.mismatches | length > 0 %}
+            <div class="comparison-grid">
+                <div class="comparison-header">
+                    <div class="comp-col-field">Field</div>
+                    <div class="comp-col-ui">UI Value</div>
+                    <div class="comp-col-api">API Value</div>
+                    <div class="comp-col-status">Status</div>
+                </div>
+                {% for mismatch in record.mismatches %}
+                {% set field = mismatch.field %}
+                {% set ui_val = mismatch.ui_value %}
+                {% set api_val = mismatch.api_value %}
+                <div class="comparison-row row-mismatch">
+                    <div class="comp-col-field">
+                        <strong>{{ field }}</strong>
+                    </div>
+                    <div class="comp-col-ui">
+                        <code class="value-ui">{{ ui_val }}</code>
+                    </div>
+                    <div class="comp-col-api">
+                        <code class="value-api">{{ api_val }}</code>
+                    </div>
+                    <div class="comp-col-status">
+                        <span class="status-dot status-dot-mismatch"></span>
+                        <span class="status-text">Mismatch</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-message">No mismatches found.</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Missing in UI View -->
+        {% if record.missing_in_ui %}
+        <div class="view-content view-missing-ui" data-record="{{ record.record_index }}">
+            {% if record.missing_in_ui | length > 0 %}
+            <div class="comparison-grid">
+                <div class="comparison-header">
+                    <div class="comp-col-field">Field</div>
+                    <div class="comp-col-ui">UI Value</div>
+                    <div class="comp-col-api">API Value</div>
+                    <div class="comp-col-status">Status</div>
+                </div>
+                {% for field in record.missing_in_ui %}
+                {% set api_val = record.api_data.get(field) %}
+                <div class="comparison-row row-missing-ui">
+                    <div class="comp-col-field">
+                        <strong>{{ field }}</strong>
+                    </div>
+                    <div class="comp-col-ui">
+                        <span class="value-empty">—</span>
+                    </div>
+                    <div class="comp-col-api">
+                        <code class="value-api">{{ api_val }}</code>
+                    </div>
+                    <div class="comp-col-status">
+                        <span class="status-dot status-dot-warning"></span>
+                        <span class="status-text">Missing UI</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-message">No fields missing in UI.</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Missing in API View -->
+        {% if record.missing_in_api %}
+        <div class="view-content view-missing-api" data-record="{{ record.record_index }}">
+            {% if record.missing_in_api | length > 0 %}
+            <div class="comparison-grid">
+                <div class="comparison-header">
+                    <div class="comp-col-field">Field</div>
+                    <div class="comp-col-ui">UI Value</div>
+                    <div class="comp-col-api">API Value</div>
+                    <div class="comp-col-status">Status</div>
+                </div>
+                {% for field in record.missing_in_api %}
+                {% set ui_val = record.ui_data.get(field) %}
+                <div class="comparison-row row-missing-api">
+                    <div class="comp-col-field">
+                        <strong>{{ field }}</strong>
+                    </div>
+                    <div class="comp-col-ui">
+                        <code class="value-ui">{{ ui_val }}</code>
+                    </div>
+                    <div class="comp-col-api">
+                        <span class="value-empty">—</span>
+                    </div>
+                    <div class="comp-col-status">
+                        <span class="status-dot status-dot-warning"></span>
+                        <span class="status-text">Missing API</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-message">No fields missing in API.</div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<script>
+(function() {
+  // Test case expand/collapse
+  document.querySelectorAll('.test-header-collapsed').forEach(function(header) {
+    var expandBtn = header.querySelector('.test-expand-btn');
+    var testIndex = header.getAttribute('data-test-index');
+    var testContainer = header.closest('.test-container');
+    var details = testContainer ? testContainer.querySelector('.test-details[data-test-index="' + testIndex + '"]') : null;
+    
+    if (!details || !expandBtn) return;
+    
+    // Make entire header clickable
+    header.addEventListener('click', function(e) {
+      // Don't trigger if clicking on a button or link
+      if (e.target.closest('button, a')) return;
+      
+      var isExpanded = expandBtn.getAttribute('aria-expanded') === 'true';
+      
+      if (isExpanded) {
+        details.style.display = 'none';
+        expandBtn.setAttribute('aria-expanded', 'false');
+        expandBtn.querySelector('.expand-icon').textContent = '▶';
+      } else {
+        details.style.display = 'block';
+        expandBtn.setAttribute('aria-expanded', 'true');
+        expandBtn.querySelector('.expand-icon').textContent = '▼';
+      }
+    });
+    
+    // Also handle button click
+    expandBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var isExpanded = expandBtn.getAttribute('aria-expanded') === 'true';
+      
+      if (isExpanded) {
+        details.style.display = 'none';
+        expandBtn.setAttribute('aria-expanded', 'false');
+        expandBtn.querySelector('.expand-icon').textContent = '▶';
+      } else {
+        details.style.display = 'block';
+        expandBtn.setAttribute('aria-expanded', 'true');
+        expandBtn.querySelector('.expand-icon').textContent = '▼';
+      }
+    });
+  });
+  
+  // Tab switching for records
+  console.log('Setting up tab listeners...');
+  var tabs = document.querySelectorAll('.view-tab');
+  console.log('Found', tabs.length, 'tabs');
+  
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      var viewType = this.getAttribute('data-view');
+      var recordIndex = this.getAttribute('data-record');
+      
+      // Find the record card - try multiple methods
+      var recordCard = this.closest('.record-card');
+      if (!recordCard) {
+        recordCard = this.closest('[data-record]');
+      }
+      
+      if (!recordCard) {
+        console.error('Record card not found for tab:', viewType);
+        return;
+      }
+      
+      console.log('Tab clicked:', viewType, 'record:', recordIndex);
+      
+      var isCurrentlyActive = this.classList.contains('active');
+      
+      // If clicking the active tab, deselect it and hide all views
+      if (isCurrentlyActive) {
+        this.classList.remove('active');
+        recordCard.querySelectorAll('.view-content').forEach(function(view) {
+          view.classList.remove('active');
+          view.style.display = 'none'; // Hide explicitly
+        });
+        return;
+      }
+      
+      // Update active tab
+      recordCard.querySelectorAll('.view-tab').forEach(function(t) {
+        t.classList.remove('active');
+      });
+      this.classList.add('active');
+      
+      // Get all views for THIS record card
+      var allViews = Array.from(recordCard.querySelectorAll('.view-content'));
+      
+      console.log('=== Tab Click Debug ===');
+      console.log('Clicked tab:', viewType, 'for record:', recordIndex);
+      console.log('Found', allViews.length, 'views in record card');
+      
+      // CRITICAL: First, explicitly hide ALL views with inline style (overrides CSS)
+      allViews.forEach(function(view, idx) {
+        view.style.display = 'none';
+        view.classList.remove('active');
+        console.log('  Hidden view [' + idx + ']:', view.className, 'data-record:', view.getAttribute('data-record'));
+      });
+      
+      // Find the target view - try multiple strategies
+      var targetView = null;
+      var expectedClass = 'view-' + viewType;
+      
+      console.log('Looking for class:', expectedClass);
+      
+      // Strategy 1: Exact match with class and data-record
+      for (var i = 0; i < allViews.length; i++) {
+        var view = allViews[i];
+        var viewRecordIndex = view.getAttribute('data-record');
+        var hasClass = view.classList.contains(expectedClass);
+        console.log('  View [' + i + ']: class contains "' + expectedClass + '"?', hasClass, 'data-record:', viewRecordIndex, 'matches?', (hasClass && viewRecordIndex === recordIndex));
+        if (hasClass && viewRecordIndex === recordIndex) {
+          targetView = view;
+          console.log('  ✓ Found via Strategy 1:', view.className);
+          break;
+        }
+      }
+      
+      // Strategy 2: Match by class only (in case data-record doesn't match exactly)
+      if (!targetView) {
+        console.log('Trying Strategy 2: match by class only');
+        for (var i = 0; i < allViews.length; i++) {
+          var view = allViews[i];
+          if (view.classList.contains(expectedClass)) {
+            targetView = view;
+            console.log('  ✓ Found via Strategy 2:', view.className);
+            break;
+          }
+        }
+      }
+      
+      // Strategy 3: Match by data-record only and check if class name contains viewType
+      if (!targetView) {
+        console.log('Trying Strategy 3: match by data-record and class name substring');
+        for (var i = 0; i < allViews.length; i++) {
+          var view = allViews[i];
+          var viewRecordIndex = view.getAttribute('data-record');
+          if (viewRecordIndex === recordIndex && view.className.indexOf(viewType) !== -1) {
+            targetView = view;
+            console.log('  ✓ Found via Strategy 3:', view.className);
+            break;
+          }
+        }
+      }
+      
+      // If found, activate it and show it
+      if (targetView) {
+        targetView.classList.add('active');
+        targetView.style.display = 'block'; // Explicitly show it
+        console.log('✓ SUCCESS: Activated and showing view:', viewType);
+        console.log('  Element:', targetView);
+        console.log('  Classes:', targetView.className);
+        console.log('  Display style:', targetView.style.display);
+        console.log('  Computed display:', window.getComputedStyle(targetView).display);
+      } else {
+        console.error('✗ FAILED: Target view not found!');
+        console.error('  Looking for: view-' + viewType + ' with data-record="' + recordIndex + '"');
+        console.error('  Available views in this record card:');
+        allViews.forEach(function(v, idx) {
+          console.error('    [' + idx + '] classes:', v.className);
+          console.error('        data-record:', v.getAttribute('data-record'));
+          console.error('        innerHTML preview:', v.innerHTML.substring(0, 100));
+        });
+      }
+      console.log('=== End Debug ===');
+    });
+  });
+  
+  // Initialize: ensure only the first active view is shown for each record
+  document.querySelectorAll('[data-record]').forEach(function(recordCard) {
+    var allViews = Array.from(recordCard.querySelectorAll('.view-content'));
+    var firstActiveView = recordCard.querySelector('.view-content.active');
+    
+    // Hide all views first
+    allViews.forEach(function(view) {
+      view.style.display = 'none';
+    });
+    
+    // If no active view, make the first one active
+    if (!firstActiveView && allViews.length > 0) {
+      firstActiveView = allViews[0];
+      firstActiveView.classList.add('active');
+    }
+    
+    // Show only the active view
+    if (firstActiveView) {
+      firstActiveView.style.display = 'block';
+      // Ensure only the active view has the active class
+      allViews.forEach(function(view) {
+        if (view !== firstActiveView) {
+          view.classList.remove('active');
+          view.style.display = 'none';
+        }
+      });
+    }
+  });
+  
+  // File input change handler
+  document.querySelectorAll('.file-input-inline').forEach(function(input) {
+    input.addEventListener('change', function() {
+      var submitBtn = document.getElementById('submit-btn-' + this.id.split('-').pop());
+      if (this.files.length > 0) {
+        submitBtn.style.display = 'inline-block';
+      } else {
+        submitBtn.style.display = 'none';
+      }
+    });
+  });
+})();
+</script>
+
+{% endblock %}

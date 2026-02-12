@@ -1,0 +1,134 @@
+{
+  "project": "example_ui_api_comparison",
+  "environment": {
+    "project": "example_ui_api_comparison",
+    "run_name": "UI vs API Comparison - 2026-02-12 10:13:44",
+    "page_object": {
+      "page_name": "Product Catalog",
+      "ui_to_api_mapping": {
+        "Product Name": "name",
+        "Price": "price",
+        "Category": "category",
+        "In Stock": "in_stock"
+      },
+      "extraction_type": "table",
+      "description": null
+    },
+    "test_name": "Product Catalog Comparison",
+    "api_endpoint": "/api/v1/products",
+    "api_parameters": {
+      "category": "electronics"
+    },
+    "comparison_summary": {
+      "total_records": 1,
+      "matched_records": 0,
+      "mismatched_records": 1,
+      "records_with_missing_ui": 1,
+      "records_with_missing_api": 1,
+      "total_fields_compared": 7,
+      "matched_fields": 0,
+      "mismatched_fields": 1,
+      "missing_in_ui_fields": 3,
+      "missing_in_api_fields": 3
+    }
+  },
+  "tests": [
+    {
+      "nodeid": "Product Catalog::summary",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "Total: 1, Matched: 0, Mismatched: 1, Missing in UI: 1, Missing in API: 1"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "summary",
+        "total_records": 1,
+        "matched_records": 0,
+        "mismatched_records": 1
+      }
+    },
+    {
+      "nodeid": "Product Catalog::record_0",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "ALL_UI: full_name=John Garcia|email_address=john.garcia@example.com|age_(years)=60|status=Inactive || ALL_API: name=Alice Johnson|email=alice.johnson@example.com|age=58|status=active || MISMATCHES: status: UI='Inactive' API='active' || MISSING_UI: age, email, name || MISSING_API: age_(years), email_address, full_name"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "record",
+        "record_index": 0,
+        "overall_match": false,
+        "ui_data": {
+          "full_name": "John Garcia",
+          "email_address": "john.garcia@example.com",
+          "age_(years)": "60",
+          "status": "Inactive"
+        },
+        "api_data": {
+          "name": "Alice Johnson",
+          "email": "alice.johnson@example.com",
+          "age": "58",
+          "status": "active"
+        },
+        "field_comparisons": [
+          {
+            "field_name": "age",
+            "ui_value": null,
+            "api_value": "58",
+            "result_type": "missing_in_ui"
+          },
+          {
+            "field_name": "age_(years)",
+            "ui_value": "60",
+            "api_value": null,
+            "result_type": "missing_in_api"
+          },
+          {
+            "field_name": "email",
+            "ui_value": null,
+            "api_value": "alice.johnson@example.com",
+            "result_type": "missing_in_ui"
+          },
+          {
+            "field_name": "email_address",
+            "ui_value": "john.garcia@example.com",
+            "api_value": null,
+            "result_type": "missing_in_api"
+          },
+          {
+            "field_name": "full_name",
+            "ui_value": "John Garcia",
+            "api_value": null,
+            "result_type": "missing_in_api"
+          },
+          {
+            "field_name": "name",
+            "ui_value": null,
+            "api_value": "Alice Johnson",
+            "result_type": "missing_in_ui"
+          },
+          {
+            "field_name": "status",
+            "ui_value": "Inactive",
+            "api_value": "active",
+            "result_type": "mismatch"
+          }
+        ]
+      }
+    }
+  ]
+}

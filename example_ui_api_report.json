@@ -1,0 +1,355 @@
+{
+  "project": "example_ui_api_comparison",
+  "environment": {
+    "project": "example_ui_api_comparison",
+    "run_name": "Example Comparison Run",
+    "page_object": {
+      "page_name": "User List",
+      "ui_to_api_mapping": {
+        "Full Name": "name",
+        "Email Address": "email",
+        "Age (years)": "age",
+        "Status": "status"
+      },
+      "extraction_type": "table",
+      "description": "Example user list page with table extraction"
+    },
+    "test_name": "User List Comparison",
+    "api_endpoint": "/api/v1/users",
+    "api_parameters": {
+      "limit": 10,
+      "offset": 0
+    },
+    "comparison_summary": {
+      "total_records": 5,
+      "matched_records": 0,
+      "mismatched_records": 5,
+      "records_with_missing_ui": 0,
+      "records_with_missing_api": 2,
+      "total_fields_compared": 21,
+      "matched_fields": 1,
+      "mismatched_fields": 18,
+      "missing_in_ui_fields": 0,
+      "missing_in_api_fields": 2
+    }
+  },
+  "tests": [
+    {
+      "nodeid": "User List::summary",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "Total: 5, Matched: 0, Mismatched: 5, Missing in UI: 0, Missing in API: 2"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "summary",
+        "total_records": 5,
+        "matched_records": 0,
+        "mismatched_records": 5
+      }
+    },
+    {
+      "nodeid": "User List::record_0",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "ALL_UI: name=Modified Name|email=diana.williams@demo.org|age=29|status=Active || ALL_API: name=Jane Johnson|email=jane.johnson@test.com|age=45|status=inactive || MISMATCHES: age: UI='29' API='45' | email: UI='diana.williams@demo.org' API='jane.johnson@test.com' | name: UI='Modified Name' API='Jane Johnson' | status: UI='Active' API='inactive'"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "record",
+        "record_index": 0,
+        "overall_match": false,
+        "ui_data": {
+          "name": "Modified Name",
+          "email": "diana.williams@demo.org",
+          "age": "29",
+          "status": "Active"
+        },
+        "api_data": {
+          "name": "Jane Johnson",
+          "email": "jane.johnson@test.com",
+          "age": "45",
+          "status": "inactive"
+        },
+        "field_comparisons": [
+          {
+            "field_name": "age",
+            "ui_value": "29",
+            "api_value": "45",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "email",
+            "ui_value": "diana.williams@demo.org",
+            "api_value": "jane.johnson@test.com",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "name",
+            "ui_value": "Modified Name",
+            "api_value": "Jane Johnson",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "status",
+            "ui_value": "Active",
+            "api_value": "inactive",
+            "result_type": "mismatch"
+          }
+        ]
+      }
+    },
+    {
+      "nodeid": "User List::record_1",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "ALL_UI: name=John Williams|email=john.williams@demo.org|age=32|status=Inactive || ALL_API: name=Bob Johnson|email=bob.johnson@test.com|age=45 || MISMATCHES: age: UI='32' API='45' | email: UI='john.williams@demo.org' API='bob.johnson@test.com' | name: UI='John Williams' API='Bob Johnson' || MISSING_API: status"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "record",
+        "record_index": 1,
+        "overall_match": false,
+        "ui_data": {
+          "name": "John Williams",
+          "email": "john.williams@demo.org",
+          "age": "32",
+          "status": "Inactive"
+        },
+        "api_data": {
+          "name": "Bob Johnson",
+          "email": "bob.johnson@test.com",
+          "age": "45"
+        },
+        "field_comparisons": [
+          {
+            "field_name": "age",
+            "ui_value": "32",
+            "api_value": "45",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "email",
+            "ui_value": "john.williams@demo.org",
+            "api_value": "bob.johnson@test.com",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "name",
+            "ui_value": "John Williams",
+            "api_value": "Bob Johnson",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "status",
+            "ui_value": "Inactive",
+            "api_value": null,
+            "result_type": "missing_in_api"
+          }
+        ]
+      }
+    },
+    {
+      "nodeid": "User List::record_2",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "ALL_UI: name=Frank Garcia|email=frank.garcia@demo.org|age=38|status=Pending|extra_ui_field=This field only exists in UI || ALL_API: name=Bob Brown|email=bob.brown@demo.org|age=25|status=active || MISMATCHES: age: UI='38' API='25' | email: UI='frank.garcia@demo.org' API='bob.brown@demo.org' | name: UI='Frank Garcia' API='Bob Brown' | status: UI='Pending' API='active' || MISSING_API: extra_ui_field"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "record",
+        "record_index": 2,
+        "overall_match": false,
+        "ui_data": {
+          "name": "Frank Garcia",
+          "email": "frank.garcia@demo.org",
+          "age": "38",
+          "status": "Pending",
+          "extra_ui_field": "This field only exists in UI"
+        },
+        "api_data": {
+          "name": "Bob Brown",
+          "email": "bob.brown@demo.org",
+          "age": "25",
+          "status": "active"
+        },
+        "field_comparisons": [
+          {
+            "field_name": "age",
+            "ui_value": "38",
+            "api_value": "25",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "email",
+            "ui_value": "frank.garcia@demo.org",
+            "api_value": "bob.brown@demo.org",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "extra_ui_field",
+            "ui_value": "This field only exists in UI",
+            "api_value": null,
+            "result_type": "missing_in_api"
+          },
+          {
+            "field_name": "name",
+            "ui_value": "Frank Garcia",
+            "api_value": "Bob Brown",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "status",
+            "ui_value": "Pending",
+            "api_value": "active",
+            "result_type": "mismatch"
+          }
+        ]
+      }
+    },
+    {
+      "nodeid": "User List::record_3",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "ALL_UI: name=Jane Brown|email=jane.brown@example.com|age=47|status=Pending || ALL_API: name=John Miller|email=john.miller@test.com|age=60|status=pending || MISMATCHES: age: UI='47' API='60' | email: UI='jane.brown@example.com' API='john.miller@test.com' | name: UI='Jane Brown' API='John Miller'"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "record",
+        "record_index": 3,
+        "overall_match": false,
+        "ui_data": {
+          "name": "Jane Brown",
+          "email": "jane.brown@example.com",
+          "age": "47",
+          "status": "Pending"
+        },
+        "api_data": {
+          "name": "John Miller",
+          "email": "john.miller@test.com",
+          "age": "60",
+          "status": "pending"
+        },
+        "field_comparisons": [
+          {
+            "field_name": "age",
+            "ui_value": "47",
+            "api_value": "60",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "email",
+            "ui_value": "jane.brown@example.com",
+            "api_value": "john.miller@test.com",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "name",
+            "ui_value": "Jane Brown",
+            "api_value": "John Miller",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "status",
+            "ui_value": "Pending",
+            "api_value": "pending",
+            "result_type": "match"
+          }
+        ]
+      }
+    },
+    {
+      "nodeid": "User List::record_4",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "ALL_UI: name=Charlie Johnson|email=charlie.johnson@example.com|age=25|status=Inactive || ALL_API: name=Eve Williams|email=eve.williams@example.com|age=48|status=active || MISMATCHES: age: UI='25' API='48' | email: UI='charlie.johnson@example.com' API='eve.williams@example.com' | name: UI='Charlie Johnson' API='Eve Williams' | status: UI='Inactive' API='active'"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "record",
+        "record_index": 4,
+        "overall_match": false,
+        "ui_data": {
+          "name": "Charlie Johnson",
+          "email": "charlie.johnson@example.com",
+          "age": "25",
+          "status": "Inactive"
+        },
+        "api_data": {
+          "name": "Eve Williams",
+          "email": "eve.williams@example.com",
+          "age": "48",
+          "status": "active"
+        },
+        "field_comparisons": [
+          {
+            "field_name": "age",
+            "ui_value": "25",
+            "api_value": "48",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "email",
+            "ui_value": "charlie.johnson@example.com",
+            "api_value": "eve.williams@example.com",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "name",
+            "ui_value": "Charlie Johnson",
+            "api_value": "Eve Williams",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "status",
+            "ui_value": "Inactive",
+            "api_value": "active",
+            "result_type": "mismatch"
+          }
+        ]
+      }
+    }
+  ]
+}

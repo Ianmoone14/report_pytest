@@ -85,8 +85,9 @@ def upload_report(
 
 
 @app.get("/runs/new", response_class=HTMLResponse)
-def new_run_page(request: Request):
-    return templates.TemplateResponse("create_run.html", {"request": request})
+def new_run_page(request: Request, db: Session = Depends(get_db)):
+    projects = crud.get_projects(db)
+    return templates.TemplateResponse("create_run.html", {"request": request, "projects": projects})
 
 
 @app.post("/runs/create")
@@ -98,7 +99,16 @@ def create_run_action(
 ):
     project = (project or "default").strip() or "default"
     name = (name or "").strip() or None
-    run = crud.create_run(db, project=project, name=name)
+    
+    # Normalize project name: find existing project with case-insensitive match
+    existing_projects = crud.get_projects(db)
+    normalized_project = project
+    for existing in existing_projects:
+        if existing.lower() == project.lower():
+            normalized_project = existing  # Use the existing project name (preserve original case)
+            break
+    
+    run = crud.create_run(db, project=normalized_project, name=name)
     return RedirectResponse(url=f"/runs/{run.id}", status_code=303)
 
 
@@ -181,6 +191,25 @@ def run_detail(
         if r.bug_link and r.bug_link.strip() and r.bug_link not in seen_urls:
             unique_bugs_run.append({"url": r.bug_link, "label": "Bug link", "test_count": 1})
             seen_urls.add(r.bug_link)
+    
+    # Check if this is a UI vs API comparison run
+    from app.comparison_parser import is_comparison_run, parse_comparison_data
+    comparison_data = None
+    if is_comparison_run(results):
+        comparison_data = parse_comparison_data(results)
+        if comparison_data:
+            return templates.TemplateResponse(
+                "run_detail_comparison.html",
+                {
+                    "request": request,
+                    "run": run,
+                    "results": results,
+                    "unique_bugs_run": unique_bugs_run,
+                    "added": added,
+                    "comparison_data": comparison_data,
+                },
+            )
+    
     return templates.TemplateResponse(
         "run_detail.html",
         {

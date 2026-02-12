@@ -18,6 +18,7 @@
             </form>
         </details>
         <p class="subtitle">{{ run.project }} · {{ run.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p class="run-type-badge">Test run</p>
     </div>
     <div class="run-actions">
         <a href="{{ request.url_for('export_run_csv', run_id=run.id) }}" class="btn btn-ghost">Export CSV</a>
@@ -64,22 +65,22 @@
 <section class="run-detail-section run-stats-section">
     <h2 class="section-title">Summary</h2>
     <div class="stats-row">
-    <div class="stat-card stat-total">
-        <span class="stat-value">{{ results | length }}</span>
-        <span class="stat-label">Total</span>
-    </div>
-    <div class="stat-card stat-passed">
-        <span class="stat-value">{{ passed | length }}</span>
-        <span class="stat-label">Passed</span>
-    </div>
-    <div class="stat-card stat-failed">
-        <span class="stat-value">{{ failed | length }}</span>
-        <span class="stat-label">Failed</span>
-    </div>
-    <div class="stat-card stat-skipped">
-        <span class="stat-value">{{ skipped | length }}</span>
-        <span class="stat-label">Skipped</span>
-    </div>
+        <div class="stat-box">
+            <div class="stat-number">{{ results | length }}</div>
+            <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-box stat-success">
+            <div class="stat-number">{{ passed | length }}</div>
+            <div class="stat-label">Passed</div>
+        </div>
+        <div class="stat-box stat-error">
+            <div class="stat-number">{{ failed | length }}</div>
+            <div class="stat-label">Failed</div>
+        </div>
+        <div class="stat-box stat-warning">
+            <div class="stat-number">{{ skipped | length }}</div>
+            <div class="stat-label">Skipped</div>
+        </div>
     </div>
 </section>
 
@@ -174,7 +175,6 @@
     <h2 class="section-title">Test results</h2>
     <div class="results-toolbar">
         <div class="search-tests">
-            <label for="search-nodeid">Search</label>
             <input type="text" id="search-nodeid" placeholder="Filter by test name..." aria-label="Search tests">
         </div>
         <div class="show-rows">

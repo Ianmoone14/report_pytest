@@ -1,0 +1,117 @@
+{
+  "project": "example_ui_api_comparison",
+  "environment": {
+    "project": "example_ui_api_comparison",
+    "run_name": "UI vs API Comparison - 2026-02-12 10:13:44",
+    "page_object": {
+      "page_name": "User List",
+      "ui_to_api_mapping": {
+        "Full Name": "name",
+        "Email Address": "email",
+        "Age (years)": "age",
+        "Status": "status"
+      },
+      "extraction_type": "table",
+      "description": null
+    },
+    "test_name": "User List Comparison",
+    "api_endpoint": "/api/v1/users",
+    "api_parameters": {
+      "limit": 10,
+      "offset": 0
+    },
+    "comparison_summary": {
+      "total_records": 1,
+      "matched_records": 0,
+      "mismatched_records": 1,
+      "records_with_missing_ui": 0,
+      "records_with_missing_api": 0,
+      "total_fields_compared": 4,
+      "matched_fields": 0,
+      "mismatched_fields": 4,
+      "missing_in_ui_fields": 0,
+      "missing_in_api_fields": 0
+    }
+  },
+  "tests": [
+    {
+      "nodeid": "User List::summary",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "Total: 1, Matched: 0, Mismatched: 1, Missing in UI: 0, Missing in API: 0"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "summary",
+        "total_records": 1,
+        "matched_records": 0,
+        "mismatched_records": 1
+      }
+    },
+    {
+      "nodeid": "User List::record_0",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "ALL_UI: name=Modified Name|email=diana.johnson.modified@test.com|age=62|status=Inactive || ALL_API: name=Diana Johnson|email=diana.johnson@test.com|age=57|status=active || MISMATCHES: age: UI='62' API='57' | email: UI='diana.johnson.modified@test.com' API='diana.johnson@test.com' | name: UI='Modified Name' API='Diana Johnson' | status: UI='Inactive' API='active'"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "record",
+        "record_index": 0,
+        "overall_match": false,
+        "ui_data": {
+          "name": "Modified Name",
+          "email": "diana.johnson.modified@test.com",
+          "age": "62",
+          "status": "Inactive"
+        },
+        "api_data": {
+          "name": "Diana Johnson",
+          "email": "diana.johnson@test.com",
+          "age": "57",
+          "status": "active"
+        },
+        "field_comparisons": [
+          {
+            "field_name": "age",
+            "ui_value": "62",
+            "api_value": "57",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "email",
+            "ui_value": "diana.johnson.modified@test.com",
+            "api_value": "diana.johnson@test.com",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "name",
+            "ui_value": "Modified Name",
+            "api_value": "Diana Johnson",
+            "result_type": "mismatch"
+          },
+          {
+            "field_name": "status",
+            "ui_value": "Inactive",
+            "api_value": "active",
+            "result_type": "mismatch"
+          }
+        ]
+      }
+    }
+  ]
+}

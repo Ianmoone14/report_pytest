@@ -16,11 +16,101 @@
         </div>
         <div class="form-group">
             <label for="project">Project (optional)</label>
-            <input type="text" name="project" id="project" placeholder="e.g. cho-requests" autocomplete="off">
+            <div class="project-select-wrapper">
+                <input 
+                    type="text" 
+                    name="project" 
+                    id="project" 
+                    placeholder="Type to search or select existing project" 
+                    autocomplete="off"
+                    list="project-list"
+                    class="project-input"
+                >
+                <datalist id="project-list">
+                    {% for project in projects %}
+                    <option value="{{ project }}">{{ project }}</option>
+                    {% endfor %}
+                </datalist>
+                {% if projects %}
+                <div class="project-dropdown" id="project-dropdown" style="display: none;">
+                    {% for project in projects %}
+                    <div class="project-option" data-project="{{ project }}">{{ project }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <small class="form-hint">Select from existing projects or type a new project name</small>
         </div>
         <button type="submit" class="btn btn-primary">Create run</button>
     </form>
 </div>
 
 <p class="muted-hint">After creating the run, you can upload one or more test-suite JSON files on the run page.</p>
+
+<script>
+(function() {
+  var projectInput = document.getElementById('project');
+  var projectDropdown = document.getElementById('project-dropdown');
+  var projectOptions = projectDropdown ? projectDropdown.querySelectorAll('.project-option') : [];
+  
+  if (!projectInput || !projectDropdown) return;
+  
+  // Show dropdown on focus
+  projectInput.addEventListener('focus', function() {
+    if (projectOptions.length > 0) {
+      projectDropdown.style.display = 'block';
+    }
+  });
+  
+  // Filter options as user types
+  projectInput.addEventListener('input', function() {
+    var searchTerm = this.value.toLowerCase();
+    var hasMatches = false;
+    
+    projectOptions.forEach(function(option) {
+      var projectName = option.getAttribute('data-project').toLowerCase();
+      if (projectName.includes(searchTerm)) {
+        option.style.display = 'block';
+        hasMatches = true;
+      } else {
+        option.style.display = 'none';
+      }
+    });
+    
+    projectDropdown.style.display = hasMatches ? 'block' : 'none';
+  });
+  
+  // Select project on click
+  projectOptions.forEach(function(option) {
+    option.addEventListener('click', function() {
+      var projectName = this.getAttribute('data-project');
+      projectInput.value = projectName;
+      projectDropdown.style.display = 'none';
+      projectInput.focus();
+    });
+  });
+  
+  // Hide dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!projectInput.contains(e.target) && !projectDropdown.contains(e.target)) {
+      projectDropdown.style.display = 'none';
+    }
+  });
+  
+  // Normalize project name on blur (case-insensitive matching)
+  projectInput.addEventListener('blur', function() {
+    var inputValue = this.value.trim();
+    if (!inputValue) return;
+    
+    // Check if there's an existing project with same name (case-insensitive)
+    projectOptions.forEach(function(option) {
+      var projectName = option.getAttribute('data-project');
+      if (projectName.toLowerCase() === inputValue.toLowerCase() && projectName !== inputValue) {
+        projectInput.value = projectName; // Use existing project name (preserve original case)
+      }
+    });
+  });
+})();
+</script>
+
 {% endblock %}

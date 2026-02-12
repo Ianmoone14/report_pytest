@@ -1,0 +1,134 @@
+{
+  "project": "example_ui_api_comparison",
+  "environment": {
+    "project": "example_ui_api_comparison",
+    "run_name": "UI vs API Comparison - 2026-02-12 10:13:44",
+    "page_object": {
+      "page_name": "Order Details",
+      "ui_to_api_mapping": {
+        "Order ID": "order_id",
+        "Customer Name": "customer_name",
+        "Total Amount": "total",
+        "Order Status": "status"
+      },
+      "extraction_type": "table",
+      "description": null
+    },
+    "test_name": "Order Details Comparison",
+    "api_endpoint": "/api/v1/orders/{order_id}",
+    "api_parameters": {
+      "order_id": "12345"
+    },
+    "comparison_summary": {
+      "total_records": 1,
+      "matched_records": 0,
+      "mismatched_records": 1,
+      "records_with_missing_ui": 1,
+      "records_with_missing_api": 1,
+      "total_fields_compared": 7,
+      "matched_fields": 0,
+      "mismatched_fields": 1,
+      "missing_in_ui_fields": 3,
+      "missing_in_api_fields": 3
+    }
+  },
+  "tests": [
+    {
+      "nodeid": "Order Details::summary",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "Total: 1, Matched: 0, Mismatched: 1, Missing in UI: 1, Missing in API: 1"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "summary",
+        "total_records": 1,
+        "matched_records": 0,
+        "mismatched_records": 1
+      }
+    },
+    {
+      "nodeid": "Order Details::record_0",
+      "outcome": "failed",
+      "duration": 0.0,
+      "setup": {
+        "duration": 0.0
+      },
+      "call": {
+        "duration": 0.0,
+        "longrepr": "ALL_UI: full_name=John Johnson|email_address=john.johnson@example.com|age_(years)=26|status=Active || ALL_API: name=Bob Miller|email=bob.miller@example.com|age=34|status=pending || MISMATCHES: status: UI='Active' API='pending' || MISSING_UI: age, email, name || MISSING_API: age_(years), email_address, full_name"
+      },
+      "teardown": {
+        "duration": 0.0
+      },
+      "metadata": {
+        "comparison_type": "record",
+        "record_index": 0,
+        "overall_match": false,
+        "ui_data": {
+          "full_name": "John Johnson",
+          "email_address": "john.johnson@example.com",
+          "age_(years)": "26",
+          "status": "Active"
+        },
+        "api_data": {
+          "name": "Bob Miller",
+          "email": "bob.miller@example.com",
+          "age": "34",
+          "status": "pending"
+        },
+        "field_comparisons": [
+          {
+            "field_name": "age",
+            "ui_value": null,
+            "api_value": "34",
+            "result_type": "missing_in_ui"
+          },
+          {
+            "field_name": "age_(years)",
+            "ui_value": "26",
+            "api_value": null,
+            "result_type": "missing_in_api"
+          },
+          {
+            "field_name": "email",
+            "ui_value": null,
+            "api_value": "bob.miller@example.com",
+            "result_type": "missing_in_ui"
+          },
+          {
+            "field_name": "email_address",
+            "ui_value": "john.johnson@example.com",
+            "api_value": null,
+            "result_type": "missing_in_api"
+          },
+          {
+            "field_name": "full_name",
+            "ui_value": "John Johnson",
+            "api_value": null,
+            "result_type": "missing_in_api"
+          },
+          {
+            "field_name": "name",
+            "ui_value": null,
+            "api_value": "Bob Miller",
+            "result_type": "missing_in_ui"
+          },
+          {
+            "field_name": "status",
+            "ui_value": "Active",
+            "api_value": "pending",
+            "result_type": "mismatch"
+          }
+        ]
+      }
+    }
+  ]
+}
